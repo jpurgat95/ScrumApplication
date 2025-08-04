@@ -1,20 +1,44 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using ScrumApplication.Data;
+using ScrumApplication.Models;
 
 namespace ScrumApplication.Pages
 {
     public class IndexModel : PageModel
     {
-        private readonly ILogger<IndexModel> _logger;
+        public List<TaskItem> Tasks { get; set; } = new();
 
-        public IndexModel(ILogger<IndexModel> logger)
-        {
-            _logger = logger;
-        }
+        [BindProperty]
+        public string Title { get; set; } = string.Empty;
+
+        [BindProperty]
+        public string Description { get; set; } = string.Empty;
 
         public void OnGet()
         {
+            Tasks = FakeDb.GetTasks();
+        }
 
+        public IActionResult OnPost()
+        {
+            if (string.IsNullOrWhiteSpace(Title))
+            {
+                ModelState.AddModelError("Title", "Tytu³ jest wymagany");
+                Tasks = FakeDb.GetTasks();
+                return Page();
+            }
+
+            var newTask = new TaskItem
+            {
+                Title = Title,
+                Description = Description,
+                IsDone = false
+            };
+
+            FakeDb.AddTask(newTask);
+
+            return RedirectToPage(); // odœwie¿a stronê po dodaniu
         }
     }
 }
