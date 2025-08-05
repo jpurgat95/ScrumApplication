@@ -1,0 +1,38 @@
+﻿@page "{id:int}"
+@model ScrumApplication.Pages.EditTaskModel
+@{
+    ViewData["Title"] = "Edytuj zadanie";
+}
+
+<h1 class="text-center mb-4">Edytuj zadanie</h1>
+
+<div class="d-flex justify-content-center">
+    <form method="post" class="card p-4 shadow-sm" style="max-width: 500px; width: 100%; font-size: 1.2rem;">
+        <input type="hidden" asp-for="Task.Id" />
+
+        <div class="mb-4">
+            <label asp-for="Task.Title" class="form-label fw-bold">Tytuł</label>
+            <input asp-for="Task.Title" class="form-control form-control-lg" required />
+            <span class="text-danger" asp-validation-for="Task.Title"></span>
+        </div>
+
+        <div class="mb-4">
+            <label asp-for="Task.Description" class="form-label fw-bold">Opis</label>
+            <textarea asp-for="Task.Description" class="form-control form-control-lg" rows="4"></textarea>
+        </div>
+
+        <div class="form-check mb-4">
+            <input asp-for="Task.IsDone" class="form-check-input" type="checkbox" id="IsDoneCheckbox" />
+            <label asp-for="Task.IsDone" class="form-check-label fw-bold"></label>
+        </div>
+
+        <div class="d-flex justify-content-center gap-3">
+            <button type="submit" class="btn btn-success btn-lg px-4">Zapisz</button>
+            <a asp-page="Index" class="btn btn-secondary btn-lg px-4">Anuluj</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

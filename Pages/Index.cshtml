@@ -3,28 +3,137 @@
 @{
     ViewData["Title"] = "Strona główna";
 }
+<!-- Toast powiadomienia -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+    <div id="deleteToast" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                Zadanie zostało usunięte.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+<!-- Confirm Delete Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Potwierdź usunięcie</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+            </div>
+            <div class="modal-body">
+                Czy na pewno chcesz usunąć to zadanie? Akcja jest nieodwracalna.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button id="confirmDeleteBtn" type="button" class="btn btn-danger">Potwierdź</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-<h1>Scrum Application</h1>
-<p>Ta aplikacja służy do zarządzania zadaniami i wydarzeniami SCRUM.</p>
+<h1 class="mb-4">Scrum Application</h1>
+<p class="lead mb-4">Ta aplikacja służy do zarządzania zadaniami i wydarzeniami SCRUM.</p>
 
-<h2>Zadania</h2>
+<div class="row">
+    <div class="col-md-7">
+        <h2>Zadania</h2>
 
-<ul>
-    @foreach (var task in Model.Tasks)
-    {
-        <li>
-            <strong>@task.Title</strong> - @task.Description
-            @(task.IsDone ? "(Zrobione)" : "(Do zrobienia)")
-        </li>
-    }
-</ul>
+        @if (Model.Tasks.Count == 0)
+        {
+            <div class="alert alert-info">Brak zadań do wyświetlenia.</div>
+        }
+        else
+        {
+            <ul class="list-group">
+                @foreach (var task in Model.Tasks)
+                {
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>@task.Title</strong><br />
+                            <small class="text-muted">@task.Description</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge rounded-pill @(task.IsDone ? "bg-success" : "bg-warning text-dark")">
+                                @(task.IsDone ? "Zrobione" : "Do zrobienia")
+                            </span>
+                            <a asp-page="EditTask" asp-route-id="@task.Id" class="btn btn-sm btn-outline-primary" title="Edytuj">
+                                <i class="bi bi-pencil"></i> Edytuj
+                            </a>
+                            <!-- Formularz usuń: ma unikalne id -->
+                            <form id="delete-form-@task.Id" method="post" asp-page-handler="Delete" asp-route-id="@task.Id" style="display:inline;">
+                                @Html.AntiForgeryToken()
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#confirmDeleteModal"
+                                        data-formid="delete-form-@task.Id">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
 
-<h3>Dodaj nowe zadanie</h3>
+    <div class="col-md-5">
+        <h3>Dodaj nowe zadanie</h3>
 
-<form method="post">
-    <input type="text" name="Title" placeholder="Tytuł" required />
-    <br />
-    <textarea name="Description" placeholder="Opis"></textarea>
-    <br />
-    <button type="submit">Dodaj zadanie</button>
-</form>
+        <form method="post" class="card p-3 shadow-sm">
+            <div class="mb-3">
+                <label for="Title" class="form-label">Tytuł</label>
+                <input type="text" id="Title" name="Title" class="form-control" placeholder="Tytuł zadania" required value="@Model.Title" />
+                <span class="text-danger">@Html.ValidationMessage("Title")</span>
+            </div>
+
+            <div class="mb-3">
+                <label for="Description" class="form-label">Opis</label>
+                <textarea id="Description" name="Description" class="form-control" rows="3" placeholder="Opis zadania">@Model.Description</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Dodaj zadanie</button>
+        </form>
+    </div>
+</div>
+
+@section Styles {
+    <!-- Ikony Bootstrap Icons CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+}
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- toast przy usunięciu  ---
+            var wasDeleted = '@(TempData["Deleted"] ?? "false")';
+            if (wasDeleted && wasDeleted.toLowerCase() === 'true') {
+                var toastEl = document.getElementById('deleteToast');
+                if (toastEl) {
+                    var toast = new bootstrap.Toast(toastEl);
+                    toast.show();
+                }
+            }
+
+            // --- modal delete logic ---
+            var targetFormId = null;
+            var confirmModal = document.getElementById('confirmDeleteModal');
+
+            confirmModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget; // przycisk, który otworzył modal
+                targetFormId = button.getAttribute('data-formid');
+            });
+
+            var confirmBtn = document.getElementById('confirmDeleteBtn');
+            confirmBtn.addEventListener('click', function () {
+                if (targetFormId) {
+                    var form = document.getElementById(targetFormId);
+                    if (form) {
+                        form.submit();
+                    }
+                }
+            });
+        });
+    </script>
+}

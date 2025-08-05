@@ -40,5 +40,11 @@ namespace ScrumApplication.Pages
 
             return RedirectToPage(); // odœwie¿a stronê po dodaniu
         }
+        public IActionResult OnPostDelete(int id)
+        {
+            FakeDb.RemoveTask(id);
+            TempData["Deleted"] = true;
+            return RedirectToPage();
+        }
     }
 }
