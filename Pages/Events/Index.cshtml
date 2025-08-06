@@ -1,0 +1,115 @@
+﻿@page
+@model ScrumApplication.Pages.Events.IndexModel
+@{
+    ViewData["Title"] = "Wydarzenia";
+}
+
+<h1 class="mb-4">Lista wydarzeń</h1>
+
+<!-- Toast container -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1200;">
+    <div id="toastContainer"></div>
+</div>
+
+<!-- Formularz dodawania wydarzenia -->
+<form method="post" class="card p-3 mb-4 shadow-sm">
+    <input name="Title" class="form-control mb-2" placeholder="Tytuł wydarzenia" required />
+    <textarea name="Description" class="form-control mb-2" placeholder="Opis wydarzenia"></textarea>
+    <input name="Date" type="date" class="form-control mb-1" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
+    <small class="text-muted mb-3 d-block">Data wydarzenia</small>
+    <button type="submit" class="btn btn-success">Dodaj wydarzenie</button>
+</form>
+
+@if (!Model.Events.Any())
+{
+    <p class="text-muted">Brak wydarzeń.</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var ev in Model.Events)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>@ev.Title</strong>
+                    <small class="text-muted ms-2">@ev.Date.ToString("yyyy-MM-dd")</small><br />
+                    <small>@ev.Description</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <form method="post" asp-page-handler="ToggleDone" asp-route-id="@ev.Id" class="m-0">
+                        <input type="checkbox" class="form-check-input" onchange="this.form.submit()" @(ev.IsDone ? "checked" : "") title="Oznacz jako zrobione" />
+                    </form>
+                    <a asp-page="./Edit" asp-route-id="@ev.Id" class="btn btn-sm btn-warning" title="Edytuj">✏️</a>
+                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('event', @ev.Id)">🗑 Usuń</button>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+<!-- Modal potwierdzenia usunięcia -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" id="deleteForm">
+            <input type="hidden" name="id" id="deleteId" />
+            <input type="hidden" name="type" id="deleteType" />
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmDeleteLabel">Potwierdzenie usunięcia</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+                </div>
+                <div class="modal-body">
+                    Czy na pewno chcesz usunąć to wydarzenie?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                    <button type="submit" class="btn btn-danger">Usuń</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function showToast(message, type = 'success') {
+            const toastId = 'toast' + Date.now();
+            const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+              <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close"></button>
+              </div>
+            </div>`;
+            const container = document.getElementById('toastContainer');
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            const toastElement = document.getElementById(toastId);
+
+            const closeBtn = toastElement.querySelector('button.btn-close');
+            closeBtn.addEventListener('click', () => {
+                const bsToast = bootstrap.Toast.getInstance(toastElement);
+                if (bsToast) bsToast.hide();
+            });
+
+            const bsToast = new bootstrap.Toast(toastElement, { delay: 3000 });
+            bsToast.show();
+            toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+        }
+
+        function confirmDelete(type, id) {
+            const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
+            document.getElementById('deleteForm').action = `?handler=Delete&type=${type}&id=${id}`;
+            document.getElementById('deleteId').value = id;
+            document.getElementById('deleteType').value = type;
+            modal.show();
+        }
+
+        window.onload = function () {
+            var toastMsg = '@TempData["ToastMessage"]';
+            var toastType = '@TempData["ToastType"]' || 'success';
+            if (toastMsg) {
+                showToast(toastMsg, toastType);
+            }
+        }
+    </script>
+}
