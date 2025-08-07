@@ -11,13 +11,20 @@
     <div id="toastContainer"></div>
 </div>
 
-<!-- Formularz dodawania wydarzenia -->
-<form method="post" class="card p-3 mb-4 shadow-sm">
-    <input name="Title" class="form-control mb-2" placeholder="Tytuł wydarzenia" required />
-    <textarea name="Description" class="form-control mb-2" placeholder="Opis wydarzenia"></textarea>
-    <input name="Date" type="date" class="form-control mb-1" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
-    <small class="text-muted mb-3 d-block">Data wydarzenia</small>
-    <button type="submit" class="btn btn-success">Dodaj wydarzenie</button>
+<form method="post" class="card p-3 mb-4 shadow-sm" id="eventForm" novalidate>
+    <input name="Title" class="form-control mb-2" placeholder="Tytuł wydarzenia" required
+           value="@Model.Title" />
+    <textarea name="Description" class="form-control mb-2" placeholder="Opis wydarzenia" required>@Model.Description</textarea>
+
+    <input name="StartDate" type="datetime-local" class="form-control mb-2"
+           value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
+    <small class="text-muted d-block mb-2">Data i godzina rozpoczęcia</small>
+
+    <input name="EndDate" type="datetime-local" class="form-control mb-2"
+           value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
+    <small class="text-muted d-block mb-3">Data i godzina zakończenia</small>
+
+    <button type="submit" class="btn btn-primary">Dodaj wydarzenie</button>
 </form>
 
 @if (!Model.Events.Any())
@@ -32,7 +39,9 @@ else
             <li class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
                     <strong>@ev.Title</strong>
-                    <small class="text-muted ms-2">@ev.Date.ToString("yyyy-MM-dd")</small><br />
+                    <small class="text-muted ms-2">
+                        @ev.StartDate.ToString("yyyy-MM-dd HH:mm") – @ev.EndDate.ToString("HH:mm")
+                    </small><br />
                     <small>@ev.Description</small>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -47,7 +56,7 @@ else
                         </div>
                     </form>
                     <a asp-page="./Edit" asp-route-id="@ev.Id" class="btn btn-sm btn-warning" title="Edytuj">✏️</a>
-                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('event', @ev.Id)">🗑 Usuń</button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('event', @ev.Id)">🗑 Usuń</button>
                 </div>
             </li>
         }
@@ -110,6 +119,29 @@ else
             document.getElementById('deleteType').value = type;
             modal.show();
         }
+
+        document.getElementById('eventForm').addEventListener('submit', function (e) {
+            const title = this.querySelector('input[name="Title"]').value.trim();
+            const desc = this.querySelector('textarea[name="Description"]').value.trim();
+            const startDate = new Date(this.querySelector('input[name="StartDate"]').value);
+            const endDate = new Date(this.querySelector('input[name="EndDate"]').value);
+
+            if (!title) {
+                e.preventDefault();
+                showToast('Tytuł jest wymagany', 'danger');
+                return;
+            }
+            if (!desc) {
+                e.preventDefault();
+                showToast('Opis jest wymagany', 'danger');
+                return;
+            }
+            if (endDate <= startDate) {
+                e.preventDefault();
+                showToast('Data i godzina zakończenia muszą być późniejsze niż data i godzina rozpoczęcia', 'danger');
+                return;
+            }
+        });
 
         window.onload = function () {
             var toastMsg = '@TempData["ToastMessage"]';

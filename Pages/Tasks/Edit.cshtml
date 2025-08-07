@@ -6,35 +6,114 @@
 
 <h1>Edytuj zadanie</h1>
 
-<form method="post" class="card p-3 shadow-sm">
+<form id="taskForm" method="post" novalidate>
+    <input type="hidden" asp-for="Id" />
+
     <div class="mb-3">
-        <label for="Title" class="form-label">Tytuł</label>
-        <input asp-for="Task.Title" class="form-control" id="Title" required />
-        <span asp-validation-for="Task.Title" class="text-danger"></span>
+        <label asp-for="Title" class="form-label">Tytuł</label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
     </div>
+
     <div class="mb-3">
-        <label for="Description" class="form-label">Opis</label>
-        <textarea asp-for="Task.Description" class="form-control" id="Description"></textarea>
-        <span asp-validation-for="Task.Description" class="text-danger"></span>
+        <label asp-for="Description" class="form-label">Opis</label>
+        <textarea asp-for="Description" class="form-control"></textarea>
+        <span asp-validation-for="Description" class="text-danger"></span>
     </div>
+
     <div class="mb-3">
-        <label for="Date" class="form-label">Data wykonania</label>
-        <input asp-for="Task.Date" type="date" class="form-control" id="Date" />
-        <span asp-validation-for="Task.Date" class="text-danger"></span>
+        <label asp-for="StartDate" class="form-label">Data i godzina rozpoczęcia</label>
+        <input asp-for="StartDate" type="datetime-local" class="form-control" />
+        <span asp-validation-for="StartDate" class="text-danger"></span>
     </div>
-    <div class="form-check mb-3">
-        <input type="checkbox"
-               class="form-check-input custom-checkbox"
-               id="IsDone"
-               asp-for="Task.IsDone" /> 
-        <label class="form-check-label ms-1" for="IsDone">Zrobione</label>
+
+    <div class="mb-3">
+        <label asp-for="EndDate" class="form-label">Data i godzina zakończenia</label>
+        <input asp-for="EndDate" type="datetime-local" class="form-control" />
+        <span asp-validation-for="EndDate" class="text-danger"></span>
     </div>
-    <div class="d-flex gap-2">
-        <button type="submit" class="btn btn-primary flex-grow-1">Zapisz zmiany</button>
-        <a asp-page="/Tasks/Index" class="btn btn-secondary flex-grow-1 text-center">Anuluj</a>
-    </div>
+
+    <button type="submit" class="btn btn-primary">Zapisz</button>
+    <a asp-page="/Tasks/Index" class="btn btn-secondary ms-2">Anuluj</a>
 </form>
+
+<!-- Kontener na toasty -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index: 1200;">
+    <div id="toastContainer"></div>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        function showToast(message, type = 'success') {
+            const toastId = 'toast' + Date.now();
+            const toastHtml = `
+            <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+              <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Zamknij"></button>
+              </div>
+            </div>`;
+            const container = document.getElementById('toastContainer');
+            container.insertAdjacentHTML('beforeend', toastHtml);
+            const toastElement = document.getElementById(toastId);
+
+            const closeBtn = toastElement.querySelector('button.btn-close');
+            closeBtn.addEventListener('click', () => {
+                const bsToast = bootstrap.Toast.getInstance(toastElement);
+                if (bsToast) bsToast.hide();
+            });
+
+            const bsToast = new bootstrap.Toast(toastElement, { delay: 3000 });
+            bsToast.show();
+            toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
+        }
+
+        document.getElementById('taskForm').addEventListener('submit', function (e) {
+            let isValid = true;
+
+            const title = this.querySelector('input[name="Title"]').value.trim();
+            const desc = this.querySelector('textarea[name="Description"]').value.trim();
+            const startDateValue = this.querySelector('input[name="StartDate"]').value;
+            const endDateValue = this.querySelector('input[name="EndDate"]').value;
+
+            if (!title) {
+                showToast('Tytuł jest wymagany', 'danger');
+                isValid = false;
+            }
+            if (!desc) {
+                showToast('Opis jest wymagany', 'danger');
+                isValid = false;
+            }
+            if (!startDateValue) {
+                showToast('Data i godzina rozpoczęcia jest wymagana', 'danger');
+                isValid = false;
+            }
+            if (!endDateValue) {
+                showToast('Data i godzina zakończenia jest wymagana', 'danger');
+                isValid = false;
+            }
+
+            if (startDateValue && endDateValue) {
+                const startDate = new Date(startDateValue);
+                const endDate = new Date(endDateValue);
+                if (endDate <= startDate) {
+                    showToast('Data i godzina zakończenia muszą być późniejsze niż data i godzina rozpoczęcia', 'danger');
+                    isValid = false;
+                }
+            }
+
+            if (!isValid) {
+                e.preventDefault();
+            }
+        });
+
+        window.onload = function () {
+            var toastMsg = '@TempData["ToastMessage"]';
+            var toastType = '@TempData["ToastType"]' || 'success';
+            if (toastMsg) {
+                showToast(toastMsg, toastType);
+            }
+        }
+    </script>
 }

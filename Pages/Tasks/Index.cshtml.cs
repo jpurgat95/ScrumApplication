@@ -1,72 +1,95 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using ScrumApplication.Models;
 using ScrumApplication.Data;
+using ScrumApplication.Models;
+using System.ComponentModel.DataAnnotations;
 
-namespace ScrumApplication.Pages.Tasks;
-
-public class IndexModel : PageModel
+namespace ScrumApplication.Pages.Tasks
 {
-    [BindProperty]
-    public string Title { get; set; } = string.Empty;
-
-    [BindProperty]
-    public string Description { get; set; } = string.Empty;
-
-    [BindProperty]
-    public DateTime Date { get; set; } = DateTime.Now;
-
-    public List<TaskItem> Tasks { get; set; } = new();
-
-    public void OnGet()
+    public class IndexModel : PageModel
     {
-        Tasks = FakeDb.GetTasks();
-    }
+        [BindProperty]
+        [Required(ErrorMessage = "Tytuł jest wymagany")]
+        public string? Title { get; set; }
 
-    public IActionResult OnPost()
-    {
-        if (!ModelState.IsValid)
+        [BindProperty]
+        [Required(ErrorMessage = "Opis jest wymagany")]
+        public string? Description { get; set; }
+
+        [BindProperty]
+        [Required(ErrorMessage = "Data rozpoczęcia jest wymagana")]
+        public DateTime StartDate { get; set; } = DateTime.Now;
+
+        [BindProperty]
+        [Required(ErrorMessage = "Data zakończenia jest wymagana")]
+        public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
+
+        public List<TaskItem> Tasks => FakeDb.GetTasks();
+
+        public void OnGet()
         {
-            Tasks = FakeDb.GetTasks();
-            return Page();
         }
 
-        var newTask = new TaskItem
+        public IActionResult OnPost()
         {
-            Title = Title,
-            Description = Description,
-            Date = Date,
-            IsDone = false
-        };
+            if (!ModelState.IsValid)
+            {
+                var firstError = ModelState.Values.SelectMany(v => v.Errors).FirstOrDefault()?.ErrorMessage;
+                if (!string.IsNullOrEmpty(firstError))
+                {
+                    TempData["ToastMessage"] = firstError;
+                    TempData["ToastType"] = "danger";
+                }
+                return Page();
+            }
 
-        FakeDb.AddTask(newTask);
+            if (EndDate <= StartDate)
+            {
+                ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
+                TempData["ToastMessage"] = "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.";
+                TempData["ToastType"] = "danger";
+                return Page();
+            }
 
-        TempData["ToastMessage"] = "Zadanie zostało utworzone";
+            FakeDb.AddTask(new TaskItem
+            {
+                Title = Title!,
+                Description = Description ?? "",
+                StartDate = StartDate,
+                EndDate = EndDate
+            });
 
-        return RedirectToPage();
-    }
+            TempData["ToastMessage"] = "Dodano nowe zadanie!";
+            TempData["ToastType"] = "success";
 
-    public IActionResult OnPostToggleDone(int id)
-    {
-        var task = FakeDb.GetTaskById(id);
-        if (task != null)
-        {
-            task.IsDone = !task.IsDone;
-            TempData["ToastMessage"] = task.IsDone ? "Zadanie oznaczone jako wykonane" : "Zadanie oznaczone jako niewykonane";
-            TempData["ToastType"] = task.IsDone ? "success" : "warning"; 
+            return RedirectToPage();
         }
-        return RedirectToPage();
-    }
 
-
-    public IActionResult OnPostDelete(int id, string type)
-    {
-        if (type == "task")
+        public IActionResult OnPostToggleDone(int id)
         {
-            FakeDb.RemoveTask(id);
-            TempData["ToastMessage"] = "Zadanie zostało usunięte";
-            TempData["ToastType"] = "danger";
+            var task = FakeDb.GetTaskById(id);
+            if (task != null)
+            {
+                task.IsDone = !task.IsDone;
+                FakeDb.UpdateTask(task);
+
+                TempData["ToastMessage"] = task.IsDone ? "Zadanie oznaczone jako wykonane" : "Zadanie oznaczone jako niewykonane";
+                TempData["ToastType"] = task.IsDone ? "success" : "warning";
+            }
+
+            return RedirectToPage();
         }
-        return RedirectToPage();
+
+        public IActionResult OnPostDelete(string type, int id)
+        {
+            if (type == "task")
+            {
+                FakeDb.RemoveTask(id);
+                TempData["ToastMessage"] = "Zadanie zostało usunięte";
+                TempData["ToastType"] = "danger";
+            }
+
+            return RedirectToPage();
+        }
     }
 }

@@ -17,27 +17,34 @@ public static class FakeDb
     public static void AddTask(TaskItem task)
     {
         task.Id = nextTaskId++;
-        task.Date = DateTime.Now;
+
+        // Jeśli nie ustawiono daty, przypisz domyślne
+        if (task.StartDate == default)
+            task.StartDate = DateTime.Now;
+        if (task.EndDate == default)
+            task.EndDate = task.StartDate.AddHours(1);
+
         tasks.Add(task);
     }
 
     public static void UpdateTask(TaskItem updated)
     {
-        var e = tasks.FirstOrDefault(t => t.Id == updated.Id);
-        if (e != null)
+        var t = tasks.FirstOrDefault(t => t.Id == updated.Id);
+        if (t != null)
         {
-            e.Title = updated.Title;
-            e.Description = updated.Description;
-            e.Date = updated.Date;
-            e.IsDone = updated.IsDone;
+            t.Title = updated.Title;
+            t.Description = updated.Description;
+            t.StartDate = updated.StartDate;
+            t.EndDate = updated.EndDate;
+            t.IsDone = updated.IsDone;
         }
     }
 
     public static void RemoveTask(int id)
     {
-        var e = tasks.FirstOrDefault(t => t.Id == id);
-        if (e != null)
-            tasks.Remove(e);
+        var t = tasks.FirstOrDefault(t => t.Id == id);
+        if (t != null)
+            tasks.Remove(t);
     }
 
     // Wydarzenia
@@ -48,8 +55,13 @@ public static class FakeDb
     public static void AddEvent(ScrumEvent ev)
     {
         ev.Id = nextEventId++;
-        if (ev.Date == default)
-            ev.Date = DateTime.Now;
+
+        // Jeśli nie ustawiono dat, przypisz domyślne
+        if (ev.StartDate == default)
+            ev.StartDate = DateTime.Now;
+        if (ev.EndDate == default)
+            ev.EndDate = ev.StartDate.AddHours(1);
+
         events.Add(ev);
     }
 
@@ -60,7 +72,8 @@ public static class FakeDb
         {
             e.Title = updated.Title;
             e.Description = updated.Description;
-            e.Date = updated.Date;
+            e.StartDate = updated.StartDate;
+            e.EndDate = updated.EndDate;
             e.IsDone = updated.IsDone;
         }
     }

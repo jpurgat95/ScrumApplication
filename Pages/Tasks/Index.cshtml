@@ -11,11 +11,19 @@
     <div id="toastContainer"></div>
 </div>
 
-<form method="post" class="card p-3 mb-4 shadow-sm">
-    <input name="Title" class="form-control mb-2" placeholder="Tytuł zadania" required />
-    <textarea name="Description" class="form-control mb-2" placeholder="Opis zadania"></textarea>
-    <input name="Date" type="date" class="form-control mb-1" value="@DateTime.Now.ToString("yyyy-MM-dd")" />
-    <small class="text-muted mb-3 d-block">Data wykonania zadania</small>
+<form method="post" class="card p-3 mb-4 shadow-sm" id="taskForm" novalidate>
+    <input name="Title" class="form-control mb-2" placeholder="Tytuł zadania" required 
+           value="@Model.Title" />
+    <textarea name="Description" class="form-control mb-2" placeholder="Opis zadania" required>@Model.Description</textarea>
+
+    <input name="StartDate" type="datetime-local" class="form-control mb-2" 
+           value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
+    <small class="text-muted d-block mb-2">Data i godzina rozpoczęcia</small>
+
+    <input name="EndDate" type="datetime-local" class="form-control mb-2" 
+           value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
+    <small class="text-muted d-block mb-3">Data i godzina zakończenia</small>
+
     <button type="submit" class="btn btn-primary">Dodaj zadanie</button>
 </form>
 
@@ -31,7 +39,9 @@ else
             <li class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
                     <strong>@task.Title</strong>
-                    <small class="text-muted ms-2">@task.Date.ToString("yyyy-MM-dd")</small><br />
+                    <small class="text-muted ms-2">
+                        @task.StartDate.ToString("yyyy-MM-dd HH:mm") – @task.EndDate.ToString("HH:mm")
+                    </small><br />
                     <small>@task.Description</small>
                 </div>
                 <div class="d-flex align-items-center gap-2">
@@ -46,7 +56,7 @@ else
                         </div>
                     </form>
                     <a asp-page="./Edit" asp-route-id="@task.Id" class="btn btn-sm btn-warning" title="Edytuj">✏️</a>
-                    <button class="btn btn-sm btn-danger" onclick="confirmDelete('task', @task.Id)">🗑 Usuń</button>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('task', @task.Id)">🗑 Usuń</button>
                 </div>
             </li>
         }
@@ -78,7 +88,6 @@ else
 
 @section Scripts {
     <script>
-        // pokaz toast z podanym kolorem tła (success, warning, danger itp.)
         function showToast(message, type = 'success') {
             const toastId = 'toast' + Date.now();
             const toastHtml = `
@@ -103,7 +112,6 @@ else
             toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
         }
 
-        // Potwierdzenie usunięcia
         function confirmDelete(type, id) {
             const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
             document.getElementById('deleteForm').action = `?handler=Delete&type=${type}&id=${id}`;
@@ -112,7 +120,28 @@ else
             modal.show();
         }
 
-        // Po załadowaniu strony - jeśli masz TempData z komunikatem, pokaż toast
+        document.getElementById('taskForm').addEventListener('submit', function (e) {
+            const title = this.querySelector('input[name="Title"]').value.trim();
+            const desc = this.querySelector('textarea[name="Description"]').value.trim();
+            const startDate = new Date(this.querySelector('input[name="StartDate"]').value);
+            const endDate = new Date(this.querySelector('input[name="EndDate"]').value);
+
+            if (!title) {
+                e.preventDefault();
+                showToast('Tytuł jest wymagany', 'danger');
+                return;
+            }
+            if (!desc) {
+                e.preventDefault();
+                showToast('Opis jest wymagany', 'danger');
+            }
+            if (endDate <= startDate) {
+            e.preventDefault();
+            showToast('Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia', 'danger');
+            return;
+            }
+        });
+
         window.onload = function () {
             var toastMsg = '@TempData["ToastMessage"]';
             var toastType = '@TempData["ToastType"]' || 'success';
@@ -122,4 +151,3 @@ else
         }
     </script>
 }
-
