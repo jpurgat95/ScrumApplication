@@ -21,7 +21,7 @@
 
 @if (!Model.Tasks.Any())
 {
-    <p class="text-muted">Brak zadań.</p>
+    <p class="text-muted"><b>Brak zadań.</b></p>
 }
 else
 {
@@ -36,7 +36,14 @@ else
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <form method="post" asp-page-handler="ToggleDone" asp-route-id="@task.Id" class="m-0">
-                        <input type="checkbox" class="form-check-input" onchange="this.form.submit()" @(task.IsDone ? "checked" : "") title="Oznacz jako zrobione" />
+                        <div class="form-check">
+                            <input type="checkbox"
+                                   class="form-check-input custom-checkbox"
+                                   id="check-@task.Id"
+                                   onchange="this.form.submit()"
+                                   @(task.IsDone ? "checked" : "") />
+                            <label class="form-check-label ms-1" for="check-@task.Id">Zrobione</label>
+                        </div>
                     </form>
                     <a asp-page="./Edit" asp-route-id="@task.Id" class="btn btn-sm btn-warning" title="Edytuj">✏️</a>
                     <button class="btn btn-sm btn-danger" onclick="confirmDelete('task', @task.Id)">🗑 Usuń</button>
