@@ -1,5 +1,11 @@
+using Microsoft.EntityFrameworkCore;
+using ScrumApplication.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
+// Dodanie po³¹czenia do bazy
+builder.Services.AddDbContext<ScrumDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 // Add services to the container.
 builder.Services.AddRazorPages();
 

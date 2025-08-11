@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Data;
 using ScrumApplication.Models;
 using System.ComponentModel.DataAnnotations;
@@ -8,6 +9,13 @@ namespace ScrumApplication.Pages.Tasks
 {
     public class IndexModel : PageModel
     {
+        private readonly ScrumDbContext _context;
+
+        public IndexModel(ScrumDbContext context) 
+        {
+            _context = context;
+        }
+
         [BindProperty]
         [Required(ErrorMessage = "Tytuł jest wymagany")]
         public string? Title { get; set; }
@@ -24,13 +32,14 @@ namespace ScrumApplication.Pages.Tasks
         [Required(ErrorMessage = "Data zakończenia jest wymagana")]
         public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
 
-        public List<TaskItem> Tasks => FakeDb.GetTasks();
+        public List<TaskItem> Tasks = new();
 
-        public void OnGet()
+        public async Task OnGetAsync()
         {
+            Tasks = await _context.Tasks.OrderBy(task => task.StartDate).ToListAsync();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
@@ -40,6 +49,7 @@ namespace ScrumApplication.Pages.Tasks
                     TempData["ToastMessage"] = firstError;
                     TempData["ToastType"] = "danger";
                 }
+                await OnGetAsync();
                 return Page();
             }
 
@@ -48,16 +58,20 @@ namespace ScrumApplication.Pages.Tasks
                 ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
                 TempData["ToastMessage"] = "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.";
                 TempData["ToastType"] = "danger";
+                await OnGetAsync();
                 return Page();
             }
 
-            FakeDb.AddTask(new TaskItem
+            var newTask = new TaskItem
             {
                 Title = Title!,
                 Description = Description ?? "",
                 StartDate = StartDate,
-                EndDate = EndDate
-            });
+                EndDate = EndDate,
+                IsDone = false
+            };
+            _context.Tasks.Add(newTask);
+            await _context.SaveChangesAsync();
 
             TempData["ToastMessage"] = "Dodano nowe zadanie!";
             TempData["ToastType"] = "success";
@@ -65,13 +79,13 @@ namespace ScrumApplication.Pages.Tasks
             return RedirectToPage();
         }
 
-        public IActionResult OnPostToggleDone(int id)
+        public async Task<IActionResult> OnPostToggleDoneAsync(int id)
         {
-            var task = FakeDb.GetTaskById(id);
+            var task = await _context.Tasks.FindAsync(id);
             if (task != null)
             {
                 task.IsDone = !task.IsDone;
-                FakeDb.UpdateTask(task);
+                await _context.SaveChangesAsync();
 
                 TempData["ToastMessage"] = task.IsDone ? "Zadanie oznaczone jako wykonane" : "Zadanie oznaczone jako niewykonane";
                 TempData["ToastType"] = task.IsDone ? "success" : "warning";
@@ -80,13 +94,19 @@ namespace ScrumApplication.Pages.Tasks
             return RedirectToPage();
         }
 
-        public IActionResult OnPostDelete(string type, int id)
+        public async Task<IActionResult> OnPostDeleteAsync(string type, int id)
         {
             if (type == "task")
             {
-                FakeDb.RemoveTask(id);
-                TempData["ToastMessage"] = "Zadanie zostało usunięte";
-                TempData["ToastType"] = "danger";
+                var task = await _context.Tasks.FindAsync(id);
+                if (task != null)
+                {
+                    _context.Tasks.Remove(task);
+                    await _context.SaveChangesAsync();
+
+                    TempData["ToastMessage"] = "Zadanie zostało usunięte";
+                    TempData["ToastType"] = "danger";
+                }
             }
 
             return RedirectToPage();

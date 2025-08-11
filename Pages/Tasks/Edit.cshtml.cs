@@ -8,6 +8,13 @@ namespace ScrumApplication.Pages.Tasks
 {
     public class EditModel : PageModel
     {
+        private readonly ScrumDbContext _context;
+
+        public EditModel(ScrumDbContext context) 
+        {
+            _context = context;
+        }
+
         [BindProperty]
         public int Id { get; set; }
 
@@ -27,9 +34,10 @@ namespace ScrumApplication.Pages.Tasks
         [Required(ErrorMessage = "Data zakończenia jest wymagana")]
         public DateTime EndDate { get; set; }
 
-        public IActionResult OnGet(int id)
+        public async Task<IActionResult> OnGetAsync(int id)
         {
-            var task = FakeDb.GetTaskById(id);
+            var task = await _context.Tasks.FindAsync(id);
+
             if (task == null)
                 return NotFound();
 
@@ -42,7 +50,7 @@ namespace ScrumApplication.Pages.Tasks
             return Page();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
@@ -55,7 +63,7 @@ namespace ScrumApplication.Pages.Tasks
                 return Page();
             }
 
-            var task = FakeDb.GetTaskById(Id);
+            var task = await _context.Tasks.FindAsync(Id);
             if (task == null)
                 return NotFound();
 
@@ -64,7 +72,8 @@ namespace ScrumApplication.Pages.Tasks
             task.StartDate = StartDate;
             task.EndDate = EndDate;
 
-            FakeDb.UpdateTask(task);
+            _context.Tasks.Update(task);
+            await _context.SaveChangesAsync();
 
             TempData["ToastMessage"] = "Zadanie zostało zaktualizowane";
             TempData["ToastType"] = "success";

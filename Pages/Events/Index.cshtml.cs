@@ -1,13 +1,22 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Data;
 using ScrumApplication.Models;
 using System.ComponentModel.DataAnnotations;
+using System.Threading.Tasks;
 
 namespace ScrumApplication.Pages.Events
 {
     public class IndexModel : PageModel
     {
+        private readonly ScrumDbContext _context;
+
+        public IndexModel(ScrumDbContext context)
+        {
+            _context = context;
+        }
+
         [BindProperty]
         [Required(ErrorMessage = "Tytuł jest wymagany")]
         public string? Title { get; set; }
@@ -24,13 +33,14 @@ namespace ScrumApplication.Pages.Events
         [Required(ErrorMessage = "Data zakończenia jest wymagana")]
         public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
 
-        public List<ScrumEvent> Events => FakeDb.GetEvents();
+        public List<ScrumEvent> Events = new();
 
-        public void OnGet()
+        public async Task OnGetAsync()
         {
+            Events = await _context.Events.OrderBy(e => e.StartDate).ToListAsync();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
@@ -41,6 +51,7 @@ namespace ScrumApplication.Pages.Events
                     TempData["ToastMessage"] = firstError;
                     TempData["ToastType"] = "danger";
                 }
+                await OnGetAsync();
                 return Page();
             }
 
@@ -49,16 +60,21 @@ namespace ScrumApplication.Pages.Events
                 ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
                 TempData["ToastMessage"] = "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.";
                 TempData["ToastType"] = "danger";
-                return Page();
+                await OnGetAsync();
+                return Page(); 
             }
 
-            FakeDb.AddEvent(new ScrumEvent
+            var newEvent = new ScrumEvent
             {
                 Title = Title!,
                 Description = Description ?? "",
                 StartDate = StartDate,
-                EndDate = EndDate
-            });
+                EndDate = EndDate,
+                IsDone = false
+            };
+
+            _context.Events.Add(newEvent);
+            await _context.SaveChangesAsync();
 
             TempData["ToastMessage"] = "Dodano nowe wydarzenie!";
             TempData["ToastType"] = "success";
@@ -66,13 +82,13 @@ namespace ScrumApplication.Pages.Events
             return RedirectToPage();
         }
 
-        public IActionResult OnPostToggleDone(int id)
+        public async Task<IActionResult> OnPostToggleDoneAsync(int id)
         {
-            var ev = FakeDb.GetEventById(id);
+            var ev = await _context.Events.FindAsync(id);
             if (ev != null)
             {
                 ev.IsDone = !ev.IsDone;
-                FakeDb.UpdateEvent(ev);
+                await _context.SaveChangesAsync();
 
                 TempData["ToastMessage"] = ev.IsDone ? "Wydarzenie oznaczone jako wykonane" : "Wydarzenie oznaczone jako niewykonane";
                 TempData["ToastType"] = ev.IsDone ? "success" : "warning";
@@ -81,13 +97,19 @@ namespace ScrumApplication.Pages.Events
             return RedirectToPage();
         }
 
-        public IActionResult OnPostDelete(string type, int id)
+        public async Task<IActionResult> OnPostDeleteAsync(string type, int id)
         {
             if (type == "event")
             {
-                FakeDb.RemoveEvent(id);
-                TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
-                TempData["ToastType"] = "danger";
+                var ev = await _context.Events.FindAsync(id);
+                if (ev != null)
+                {
+                    _context.Events.Remove(ev);
+                    await _context.SaveChangesAsync();
+
+                    TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
+                    TempData["ToastType"] = "danger";
+                }
             }
 
             return RedirectToPage();

@@ -8,6 +8,12 @@ namespace ScrumApplication.Pages.Events
 {
     public class EditEventModel : PageModel
     {
+        private readonly ScrumDbContext _context;
+
+        public EditEventModel(ScrumDbContext context)
+        {
+            _context = context;
+        }
         [BindProperty]
         public int Id { get; set; }
 
@@ -26,10 +32,10 @@ namespace ScrumApplication.Pages.Events
         [BindProperty]
         [Required(ErrorMessage = "Data zakończenia jest wymagana")]
         public DateTime EndDate { get; set; }
-
-        public IActionResult OnGet(int id)
+        public async Task<IActionResult> OnGetAsync(int id)
         {
-            var ev = FakeDb.GetEventById(id);
+            var ev = await _context.Events.FindAsync(id);
+
             if (ev == null)
                 return NotFound();
 
@@ -42,7 +48,7 @@ namespace ScrumApplication.Pages.Events
             return Page();
         }
 
-        public IActionResult OnPost()
+        public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
@@ -55,7 +61,7 @@ namespace ScrumApplication.Pages.Events
                 return Page();
             }
 
-            var ev = FakeDb.GetEventById(Id);
+            var ev = await _context.Events.FindAsync(Id);
             if (ev == null)
                 return NotFound();
 
@@ -64,7 +70,8 @@ namespace ScrumApplication.Pages.Events
             ev.StartDate = StartDate;
             ev.EndDate = EndDate;
 
-            FakeDb.UpdateEvent(ev);
+            _context.Events.Update(ev);
+            await _context.SaveChangesAsync();
 
             TempData["ToastMessage"] = "Wydarzenie zostało zaktualizowane";
             TempData["ToastType"] = "success";
