@@ -1,153 +1,175 @@
 ﻿@page
 @model ScrumApplication.Pages.Tasks.IndexModel
 @{
-    ViewData["Title"] = "Zadania";
+    ViewData["Title"] = "Lista zadań";
 }
 
-<h1 class="mb-4">Lista zadań</h1>
-
-<!-- Toast container -->
-<div class="position-fixed top-0 end-0 p-3" style="z-index: 1200;">
-    <div id="toastContainer"></div>
-</div>
-
-<form method="post" class="card p-3 mb-4 shadow-sm" id="taskForm" novalidate>
-    <input name="Title" class="form-control mb-2" placeholder="Tytuł zadania" required 
-           value="@Model.Title" />
-    <textarea name="Description" class="form-control mb-2" placeholder="Opis zadania" required>@Model.Description</textarea>
-
-    <input name="StartDate" type="datetime-local" class="form-control mb-2" 
-           value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
-    <small class="text-muted d-block mb-2">Data i godzina rozpoczęcia</small>
-
-    <input name="EndDate" type="datetime-local" class="form-control mb-2" 
-           value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
-    <small class="text-muted d-block mb-3">Data i godzina zakończenia</small>
-
-    <button type="submit" class="btn btn-primary">Dodaj zadanie</button>
-</form>
-
-@if (!Model.Tasks.Any())
-{
-    <p class="text-muted"><b>Brak zadań.</b></p>
-}
-else
-{
-    <ul class="list-group">
-        @foreach (var task in Model.Tasks)
-        {
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    <strong>@task.Title</strong>
-                    <small class="text-muted ms-2">
-                        @task.StartDate.ToString("yyyy-MM-dd HH:mm") – @task.EndDate.ToString("HH:mm")
-                    </small><br />
-                    <small>@task.Description</small>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <form method="post" asp-page-handler="ToggleDone" asp-route-id="@task.Id" class="m-0">
-                        <div class="form-check">
-                            <input type="checkbox"
-                                   class="form-check-input custom-checkbox"
-                                   id="check-@task.Id"
-                                   onchange="this.form.submit()"
-                                   @(task.IsDone ? "checked" : "") />
-                            <label class="form-check-label ms-1" for="check-@task.Id">Zrobione</label>
-                        </div>
-                    </form>
-                    <a asp-page="./Edit" asp-route-id="@task.Id" class="btn btn-sm btn-warning" title="Edytuj">✏️</a>
-                    <button type="button" class="btn btn-sm btn-danger" onclick="confirmDelete('task', @task.Id)">🗑 Usuń</button>
-                </div>
-            </li>
-        }
-    </ul>
-}
-
-<!-- Modal potwierdzenia usunięcia -->
-<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <form method="post" id="deleteForm">
-            <input type="hidden" name="id" id="deleteId" />
-            <input type="hidden" name="type" id="deleteType" />
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="confirmDeleteLabel">Potwierdzenie usunięcia</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Zamknij"></button>
-                </div>
-                <div class="modal-body">
-                    Czy na pewno chcesz usunąć to zadanie?
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-                    <button type="submit" class="btn btn-danger">Usuń</button>
-                </div>
+<!-- Formularz dodawania zadania -->
+<div class="card mb-4 shadow-sm">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Dodaj nowe zadanie</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            <div class="mb-3">
+                <label asp-for="Title" class="form-label">Tytuł zadania</label>
+                <input asp-for="Title" class="form-control" placeholder="Wprowadź tytuł zadania" />
+                <span asp-validation-for="Title" class="text-danger"></span>
             </div>
+            <div class="mb-3">
+                <label asp-for="Description" class="form-label">Opis zadania</label>
+                <textarea asp-for="Description" class="form-control" placeholder="Dodaj krótki opis"></textarea>
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="StartDate" class="form-label">Data rozpoczęcia</label>
+                <input name="StartDate" type="datetime-local" class="form-control"
+                       value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                <span asp-validation-for="StartDate" class="text-danger"></span>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="EndDate" class="form-label">Data zakończenia</label>
+                <input name="EndDate" type="datetime-local" class="form-control"
+                       value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                <span asp-validation-for="EndDate" class="text-danger"></span>
+            </div>
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-plus-circle"></i> Dodaj zadanie
+            </button>
         </form>
     </div>
 </div>
 
-@section Scripts {
-    <script>
-        function showToast(message, type = 'success') {
-            const toastId = 'toast' + Date.now();
-            const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-              <div class="d-flex">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close"></button>
-              </div>
-            </div>`;
-            const container = document.getElementById('toastContainer');
-            container.insertAdjacentHTML('beforeend', toastHtml);
-            const toastElement = document.getElementById(toastId);
+<!-- Tabela zadań -->
+<div class="card shadow-sm">
+    <div class="card-header bg-dark text-white">
+        <h5 class="mb-0">Lista zadań</h5>
+    </div>
+    <div class="card-body table-responsive">
+        <table id="tasksTable" class="table table-striped table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Tytuł</th>
+                    <th>Opis</th>
+                    <th>Data rozpoczęcia</th>
+                    <th>Data zakończenia</th>
+                    <th>Status</th>
+                    <th>Akcje</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var task in Model.Tasks)
+                {
+                    <tr>
+                        <td>@task.Title</td>
+                        <td>@task.Description</td>
+                        <td>@task.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>@task.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
+                        <td>
+                            @if (task.IsDone)
+                            {
+                                <span class="badge bg-success">Wykonane</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">W trakcie</span>
+                            }
+                        </td>
+                        <td>
+                            <a asp-page="./Edit" asp-route-id="@task.Id" class="btn btn-sm btn-outline-secondary me-1" title="Edytuj zadanie">
+                                <i class="bi bi-pencil"></i>
+                            </a>
 
-            const closeBtn = toastElement.querySelector('button.btn-close');
-            closeBtn.addEventListener('click', () => {
-                const bsToast = bootstrap.Toast.getInstance(toastElement);
-                if (bsToast) bsToast.hide();
+                            <form method="post" asp-page-handler="ToggleDone" asp-route-id="@task.Id" class="d-inline me-1">
+                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Zmień status">
+                                    @if (task.IsDone)
+                                    {
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-check2"></i>
+                                    }
+                                </button>
+                            </form>
+
+                            <!-- Przycisk wywołujący modal -->
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#deleteModal"
+                                    data-id="@task.Id"
+                                    title="Usuń zadanie">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<!-- Modal potwierdzenia usunięcia -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteModalLabel">Potwierdzenie usunięcia</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Czy na pewno chcesz usunąć to zadanie? Tej operacji nie można cofnąć.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <form method="post" asp-page-handler="Delete" id="deleteForm">
+                    <input type="hidden" name="id" id="deleteId" />
+                    <input type="hidden" name="type" value="task" />
+                    <button type="submit" class="btn btn-danger">Usuń</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toasty Bootstrap -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+    <div id="liveToast" class="toast align-items-center text-bg-@(TempData["ToastType"] ?? "info") border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body">
+                @TempData["ToastMessage"]
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        $(document).ready(function () {
+            $('#tasksTable').DataTable({
+                responsive: true,
+                language: {
+                    url: "//cdn.datatables.net/plug-ins/1.13.6/i18n/pl.json"
+                }
             });
 
-            const bsToast = new bootstrap.Toast(toastElement, { delay: 3000 });
-            bsToast.show();
-            toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
-        }
+            // Modal - przekazywanie ID do formularza
+            var deleteModal = document.getElementById('deleteModal');
+            deleteModal.addEventListener('show.bs.modal', function (event) {
+                var button = event.relatedTarget;
+                var id = button.getAttribute('data-id');
+                document.getElementById('deleteId').value = id;
+            });
 
-        function confirmDelete(type, id) {
-            const modal = new bootstrap.Modal(document.getElementById('confirmDeleteModal'));
-            document.getElementById('deleteForm').action = `?handler=Delete&type=${type}&id=${id}`;
-            document.getElementById('deleteId').value = id;
-            document.getElementById('deleteType').value = type;
-            modal.show();
-        }
-
-        document.getElementById('taskForm').addEventListener('submit', function (e) {
-            const title = this.querySelector('input[name="Title"]').value.trim();
-            const desc = this.querySelector('textarea[name="Description"]').value.trim();
-            const startDate = new Date(this.querySelector('input[name="StartDate"]').value);
-            const endDate = new Date(this.querySelector('input[name="EndDate"]').value);
-
-            if (!title) {
-                e.preventDefault();
-                showToast('Tytuł jest wymagany', 'danger');
-                return;
-            }
-            if (!desc) {
-                e.preventDefault();
-                showToast('Opis jest wymagany', 'danger');
-            }
-            if (endDate <= startDate) {
-            e.preventDefault();
-            showToast('Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia', 'danger');
-            return;
+            // Toasty
+            var toastEl = document.getElementById('liveToast');
+            if ('@TempData["ToastMessage"]' !== '') {
+                var toast = new bootstrap.Toast(toastEl);
+                toast.show();
             }
         });
-
-        window.onload = function () {
-            var toastMsg = '@TempData["ToastMessage"]';
-            var toastType = '@TempData["ToastType"]' || 'success';
-            if (toastMsg) {
-                showToast(toastMsg, toastType);
-            }
-        }
     </script>
 }

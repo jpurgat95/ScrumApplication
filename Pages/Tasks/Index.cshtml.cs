@@ -56,8 +56,6 @@ namespace ScrumApplication.Pages.Tasks
             if (EndDate <= StartDate)
             {
                 ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
-                TempData["ToastMessage"] = "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.";
-                TempData["ToastType"] = "danger";
                 await OnGetAsync();
                 return Page();
             }

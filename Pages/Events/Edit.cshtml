@@ -37,11 +37,6 @@
     <a asp-page="/Events/Index" class="btn btn-secondary ms-2">Anuluj</a>
 </form>
 
-<!-- Kontener na toasty -->
-<div class="position-fixed top-0 end-0 p-3" style="z-index: 1200;">
-    <div id="toastContainer"></div>
-</div>
-
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
@@ -76,33 +71,6 @@
             const desc = this.querySelector('textarea[name="Description"]').value.trim();
             const startDateValue = this.querySelector('input[name="StartDate"]').value;
             const endDateValue = this.querySelector('input[name="EndDate"]').value;
-
-            if (!title) {
-                showToast('Tytuł jest wymagany', 'danger');
-                isValid = false;
-            }
-            if (!desc) {
-                showToast('Opis jest wymagany', 'danger');
-                isValid = false;
-            }
-            if (!startDateValue) {
-                showToast('Data i godzina rozpoczęcia jest wymagana', 'danger');
-                isValid = false;
-            }
-            if (!endDateValue) {
-                showToast('Data i godzina zakończenia jest wymagana', 'danger');
-                isValid = false;
-            }
-
-            if (startDateValue && endDateValue) {
-                const startDate = new Date(startDateValue);
-                const endDate = new Date(endDateValue);
-                if (endDate <= startDate) {
-                    showToast('Data i godzina zakończenia muszą być późniejsze niż data i godzina rozpoczęcia', 'danger');
-                    isValid = false;
-                }
-            }
-
             if (!isValid) {
                 e.preventDefault();
             }

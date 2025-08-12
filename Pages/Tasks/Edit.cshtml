@@ -45,15 +45,16 @@
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
     <script>
+        // Funkcja pokazująca toast - ujednolicona i używana w całym projekcie
         function showToast(message, type = 'success') {
             const toastId = 'toast' + Date.now();
             const toastHtml = `
-            <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-              <div class="d-flex">
-                <div class="toast-body">${message}</div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Zamknij"></button>
-              </div>
-            </div>`;
+                <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                    <div class="d-flex">
+                        <div class="toast-body">${message}</div>
+                        <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Zamknij"></button>
+                    </div>
+                </div>`;
             const container = document.getElementById('toastContainer');
             container.insertAdjacentHTML('beforeend', toastHtml);
             const toastElement = document.getElementById(toastId);
@@ -69,6 +70,7 @@
             toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
         }
 
+        // Walidacja formularza z pokazaniem toastów - uniwersalna i spójna
         document.getElementById('taskForm').addEventListener('submit', function (e) {
             let isValid = true;
 
@@ -76,38 +78,12 @@
             const desc = this.querySelector('textarea[name="Description"]').value.trim();
             const startDateValue = this.querySelector('input[name="StartDate"]').value;
             const endDateValue = this.querySelector('input[name="EndDate"]').value;
-
-            if (!title) {
-                showToast('Tytuł jest wymagany', 'danger');
-                isValid = false;
-            }
-            if (!desc) {
-                showToast('Opis jest wymagany', 'danger');
-                isValid = false;
-            }
-            if (!startDateValue) {
-                showToast('Data i godzina rozpoczęcia jest wymagana', 'danger');
-                isValid = false;
-            }
-            if (!endDateValue) {
-                showToast('Data i godzina zakończenia jest wymagana', 'danger');
-                isValid = false;
-            }
-
-            if (startDateValue && endDateValue) {
-                const startDate = new Date(startDateValue);
-                const endDate = new Date(endDateValue);
-                if (endDate <= startDate) {
-                    showToast('Data i godzina zakończenia muszą być późniejsze niż data i godzina rozpoczęcia', 'danger');
-                    isValid = false;
-                }
-            }
-
             if (!isValid) {
                 e.preventDefault();
             }
         });
 
+        // Pokazanie toastu z TempData (np. po zapisie)
         window.onload = function () {
             var toastMsg = '@TempData["ToastMessage"]';
             var toastType = '@TempData["ToastType"]' || 'success';
