@@ -61,9 +61,109 @@
         {
             border: 1px solid #ced4da; /* domyślny jasny */
         }
-    </style>
+        /*Style dla Kaalendarza JS*/
+        #calendar {
+            background: #76e385;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            font-size: 0.95rem;
+            min-height: 100%;
+        }
 
-    @RenderSection("Styles", required: false)  <!-- tutaj dodane -->
+        .fc-toolbar-title {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .fc-button {
+            background-color: #0d6efd;
+            border: none;
+            border-radius: 5px;
+            color: white !important;
+            transition: background-color 0.2s;
+        }
+
+            .fc-button:hover {
+                background-color: #0b5ed7;
+            }
+
+        .fc-day-today {
+            background-color: rgba(13, 110, 253, 0.1) !important;
+        }
+
+        .fc-event {
+            border-radius: 5px;
+            padding: 6px 8px; /* większy padding = większy "element" */
+            font-size: 0.8rem; /* większa czcionka */
+            color: #fff !important; /* zawsze biały tekst */
+            white-space: normal; /* żeby tekst łamał się w wielu liniach */
+        }
+
+        .fc-event-time {
+            display: none; /* Ukrywa godzinę w elemencie wydarzenia */
+        }
+
+        .fc-toolbar-chunk .fc-button {
+            padding: 0.25rem 0.5rem; /* mniejsze przyciski */
+            font-size: 0.75rem; /* mniejsza czcionka */
+            margin: 0 3px; /* odstępy między przyciskami */
+            border-radius: 5px; /* lekko zaokrąglone rogi */
+        }
+
+        .fc .fc-toolbar-title {
+            font-size: 1.1rem; /* trochę mniejszy tytuł */
+        }
+
+        @@media (max-width: 768px) {
+            .fc .fc-toolbar-chunk .fc-today-button {
+                margin-top: 8px !important;
+                display: inline-block !important;
+            }
+
+            .fc .fc-toolbar-chunk .fc-button {
+                padding: .25rem .5rem;
+                font-size: .875rem;
+                margin-right: .25rem;
+            }
+        }
+        /*Tooltipy kolorki*/
+        .tooltip-inner {
+            background-color: #c8f7c5 !important; /* pastelowa jasna zieleń */
+            color: #000 !important; /* czarny tekst */
+            border: 1px solid #8fd98f;
+            font-size: 0.9rem;
+            padding: 6px 10px;
+        }
+
+        .tooltip.bs-tooltip-top .tooltip-arrow::before {
+            border-top-color: #c8f7c5 !important; /* kolor strzałki */
+        }
+
+        .tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+            border-bottom-color: #c8f7c5 !important;
+        }
+
+        .tooltip.bs-tooltip-start .tooltip-arrow::before {
+            border-left-color: #c8f7c5 !important;
+        }
+
+        .tooltip.bs-tooltip-end .tooltip-arrow::before {
+            border-right-color: #c8f7c5 !important;
+        }
+        /*Kolor satusu wydarzeń*/
+        .event-done {
+            background-color: #198754 !important; /* Bootstrap green */
+            border-color: #198754 !important;
+        }
+
+        .event-pending {
+            background-color: #ffc107 !important; /* Bootstrap yellow */
+            border-color: #ffc107 !important;
+        }
+    </style>
+    @RenderSection("Styles", required: false)
 </head>
 <body>
     <header>
@@ -100,6 +200,8 @@
     <!-- DataTables JS -->
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <!-- FullCalendar JS -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
     @RenderSection("Scripts", required: false)
 </body>
 </html>

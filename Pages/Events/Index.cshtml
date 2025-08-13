@@ -4,41 +4,59 @@
     ViewData["Title"] = "Lista wydarzeń";
 }
 
-<!-- Formularz dodawania wydarzenua -->
-<div class="card mb-4 shadow-sm">
+<div class="card mb-5 pb- shadow-sm">
     <div class="card-header bg-primary text-white">
         <h5 class="mb-0">Dodaj nowe wydarzenie</h5>
     </div>
-    <div class="card-body">
-        <form method="post">
-            <div class="mb-3">
-                <label asp-for="Title" class="form-label">Tytuł wydarzenia</label>
-                <input asp-for="Title" class="form-control" placeholder="Wprowadź tytuł wydarzenia" />
-                <span asp-validation-for="Title" class="text-danger"></span>
+    <div class="card-body" style="min-height: 500px;">
+        <div class="row d-flex pb-5 align-items-stretch">
+            <!-- Formularz -->
+            <div class="col-md-6 pe-3" style="border-right: 4px solid #006400;">
+                <form method="post" class="h-100 d-flex flex-column justify-content-start">
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label">Tytuł wydarzenia</label>
+                        <input asp-for="Title" class="form-control" placeholder="Wprowadź tytuł wydarzenia" />
+                        <span asp-validation-for="Title" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label">Opis wydarzenia</label>
+                        <textarea asp-for="Description" class="form-control" placeholder="Dodaj krótki opis"></textarea>
+                        <span asp-validation-for="Description" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label for="StartDate" class="form-label">Data rozpoczęcia</label>
+                        <input name="StartDate" type="datetime-local" class="form-control"
+                               value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                        <span asp-validation-for="StartDate" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label for="EndDate" class="form-label">Data zakończenia</label>
+                        <input name="EndDate" type="datetime-local" class="form-control"
+                               value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                        <span asp-validation-for="EndDate" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-success mt-auto">
+                        <i class="bi bi-plus-circle"></i> Dodaj wydarzenie
+                    </button>
+                </form>
             </div>
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label">Opis wydarzenia</label>
-                <textarea asp-for="Description" class="form-control" placeholder="Dodaj krótki opis"></textarea>
-                <span asp-validation-for="Description" class="text-danger"></span>
+
+            <!-- Kalendarz -->
+            <div class="col-md-6 ps-3 d-flex flex-column">
+                <div id="calendar" class="flex-grow-1"></div>
+                <div class="mt-2 d-flex align-items-right">
+                    <div class="me-3 d-flex align-items-center">
+                        <span class="badge me-1" style="background-color: #198754;">&nbsp;&nbsp;</span> Wykonane
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="badge me-1" style="background-color: #ffc107;">&nbsp;&nbsp;</span> W trakcie
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6 mb-3">
-                <label for="StartDate" class="form-label">Data rozpoczęcia</label>
-                <input name="StartDate" type="datetime-local" class="form-control"
-                       value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
-                <span asp-validation-for="StartDate" class="text-danger"></span>
-            </div>
-            <div class="col-md-6 mb-3">
-                <label for="EndDate" class="form-label">Data zakończenia</label>
-                <input name="EndDate" type="datetime-local" class="form-control"
-                       value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
-                <span asp-validation-for="EndDate" class="text-danger"></span>
-            </div>
-            <button type="submit" class="btn btn-success">
-                <i class="bi bi-plus-circle"></i> Dodaj wydarzenie
-            </button>
-        </form>
+        </div>
     </div>
 </div>
+
 
 <!-- Tabela zadań -->
 <div class="card shadow-sm">
@@ -80,7 +98,7 @@
                                 <i class="bi bi-pencil"></i>
                             </a>
 
-                            <form method="post" asp-page-handler="ToggleDone" asp-route-id="@ev.Id" class="d-inline me-1">
+                            <form method="post" asp-page-handler="ToggleDone" asp-route-id="@ev.Id" class="d-inline me-1" onsubmit="updateEventColor(@ev.Id, this); return false;">
                                 <button type="submit" class="btn btn-sm btn-outline-primary" title="Zmień status">
                                     @if (ev.IsDone)
                                     {
@@ -92,6 +110,7 @@
                                     }
                                 </button>
                             </form>
+
 
                             <!-- Przycisk wywołujący modal -->
                             <button type="button" class="btn btn-sm btn-outline-danger"
@@ -108,7 +127,6 @@
         </table>
     </div>
 </div>
-
 
 <!-- Modal potwierdzenia usunięcia -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
@@ -170,6 +188,101 @@
                 var toast = new bootstrap.Toast(toastEl);
                 toast.show();
             }
+        });
+    </script>
+    <!-- Kalendarz JS -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+          var calendarEl = document.getElementById('calendar');
+
+          var calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,timeGridDay'
+            },
+            locale: 'pl',
+            buttonText: {
+              today: 'Dzisiaj',
+              month: 'Miesiąc',
+              week: 'Tydzień',
+              day: 'Dzień',
+              list: 'Lista'
+            },
+            buttonHints: {
+              today: 'Przejdź do dzisiejszej daty',
+              prev: 'Poprzedni miesiąc',
+              next: 'Następny miesiąc'
+            },
+            allDayText: 'Dzień',
+            events: '/Api/Events',
+
+                    eventClassNames: function(info) {
+            // Kolor wydarzenia w kalendarzu w zależności od statusu
+            if (info.event.extendedProps.isDone) {
+                return ['event-done']; // zielony
+            } else {
+                return ['event-pending']; // żółty
+            }
+        },
+
+            // === TOOLTIPY ===
+            eventDidMount: function(info) {
+              // opis z API -> extendedProps.description
+              var desc = info.event.extendedProps?.description || '';
+              // Zbuduj treść tooltipa (tytuł + opis + godziny)
+              var timeText = info.timeText ? `<div><small>${info.timeText}</small></div>` : '';
+              var content = `
+                <div><strong>${info.event.title}</strong></div>
+                ${timeText}
+                ${desc ? `<div>${desc}</div>` : ''}
+              `.trim();
+
+              // Atrybuty pod bootstrap tooltip
+              info.el.setAttribute('data-bs-toggle', 'tooltip');
+              info.el.setAttribute('data-bs-html', 'true');
+              info.el.setAttribute('data-bs-title', content);
+
+              // Inicjalizacja tooltipa
+              var tip = new bootstrap.Tooltip(info.el, {
+                container: 'body',
+                trigger: 'hover focus'
+              });
+
+              // Zachowaj referencję, żeby posprzątać przy unmount
+              info.el._fcTooltip = tip;
+            },
+            eventWillUnmount: function(info) {
+              if (info.el._fcTooltip) {
+                info.el._fcTooltip.dispose();
+                delete info.el._fcTooltip;
+              }
+            }
+          });
+                  function updateEventColor(id, form) {
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Znajdź event w kalendarzu i zmień klasę
+                    let event = calendar.getEventById(id);
+                    if (event) {
+                        if (data.isDone) {
+                            event.setProp('classNames', ['event-done']);
+                        } else {
+                            event.setProp('classNames', ['event-pending']);
+                        }
+                    }
+                }
+            });
+        }
+
+
+          calendar.render();
         });
     </script>
 }
