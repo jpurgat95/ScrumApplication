@@ -4,42 +4,58 @@
     ViewData["Title"] = "Lista zadań";
 }
 
-<!-- Formularz dodawania zadania -->
-<div class="card mb-4 shadow-sm">
+<div class="card mb-5 pb- shadow-sm">
     <div class="card-header bg-primary text-white">
         <h5 class="mb-0">Dodaj nowe zadanie</h5>
     </div>
-    <div class="card-body">
-        <form method="post">
-            <div class="mb-3">
-                <label asp-for="Title" class="form-label">Tytuł zadania</label>
-                <input asp-for="Title" class="form-control" placeholder="Wprowadź tytuł zadania" />
-                <span asp-validation-for="Title" class="text-danger"></span>
+    <div class="card-body" style="min-height: 500px;">
+        <div class="row d-flex pb-5 align-items-stretch">
+            <!-- Formularz -->
+            <div class="col-md-6 pe-3" style="border-right: 4px solid #006400;">
+                <form method="post" class="h-100 d-flex flex-column justify-content-start">
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label">Tytuł zadania</label>
+                        <input asp-for="Title" class="form-control" placeholder="Wprowadź tytuł zadania" />
+                        <span asp-validation-for="Title" class="text-danger"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label">Opis zadania</label>
+                        <textarea asp-for="Description" class="form-control" placeholder="Dodaj krótki opis"></textarea>
+                        <span asp-validation-for="Description" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label for="StartDate" class="form-label">Data rozpoczęcia</label>
+                        <input name="StartDate" type="datetime-local" class="form-control"
+                               value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                        <span asp-validation-for="StartDate" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-12 mb-3">
+                        <label for="EndDate" class="form-label">Data zakończenia</label>
+                        <input name="EndDate" type="datetime-local" class="form-control"
+                               value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                        <span asp-validation-for="EndDate" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-success mt-auto">
+                        <i class="bi bi-plus-circle"></i> Dodaj zadanie
+                    </button>
+                </form>
             </div>
-            <div class="mb-3">
-                <label asp-for="Description" class="form-label">Opis zadania</label>
-                <textarea asp-for="Description" class="form-control" placeholder="Dodaj krótki opis"></textarea>
-                <span asp-validation-for="Description" class="text-danger"></span>
+
+            <!-- Kalendarz -->
+            <div class="col-md-6 ps-3 d-flex flex-column">
+                <div id="calendar" class="flex-grow-1"></div>
+                <div class="mt-2 d-flex align-items-right">
+                    <div class="me-3 d-flex align-items-center">
+                        <span class="badge me-1" style="background-color: #198754;">&nbsp;&nbsp;</span> Wykonane
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="badge me-1" style="background-color: #ffc107;">&nbsp;&nbsp;</span> W trakcie
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6 mb-3">
-                <label for="StartDate" class="form-label">Data rozpoczęcia</label>
-                <input name="StartDate" type="datetime-local" class="form-control"
-                       value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
-                <span asp-validation-for="StartDate" class="text-danger"></span>
-            </div>
-            <div class="col-md-6 mb-3">
-                <label for="EndDate" class="form-label">Data zakończenia</label>
-                <input name="EndDate" type="datetime-local" class="form-control"
-                       value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
-                <span asp-validation-for="EndDate" class="text-danger"></span>
-            </div>
-            <button type="submit" class="btn btn-success">
-                <i class="bi bi-plus-circle"></i> Dodaj zadanie
-            </button>
-        </form>
+        </div>
     </div>
 </div>
-
 <!-- Tabela zadań -->
 <div class="card shadow-sm">
     <div class="card-header bg-dark text-white">
@@ -171,5 +187,11 @@
                 toast.show();
             }
         });
+    </script>
+    <!-- Kalendarz JS -->
+    <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    initCalendar('/Api/Tasks'); // ← tutaj podajesz swój endpoint
+                });
     </script>
 }
