@@ -13,5 +13,6 @@
         public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
 
         public bool IsDone { get; set; } = false;
+        public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();
     }
 }

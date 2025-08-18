@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Data;
 using ScrumApplication.Models;
@@ -11,7 +12,7 @@ namespace ScrumApplication.Pages.Tasks
     {
         private readonly ScrumDbContext _context;
 
-        public IndexModel(ScrumDbContext context) 
+        public IndexModel(ScrumDbContext context)
         {
             _context = context;
         }
@@ -31,24 +32,32 @@ namespace ScrumApplication.Pages.Tasks
         [BindProperty]
         [Required(ErrorMessage = "Data zakończenia jest wymagana")]
         public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
+        // ID wybranego wydarzenia
+        [BindProperty]
+        [Required(ErrorMessage = "Wybór wydarzenia jest wymagany")]
+        public int EventId { get; set; }
 
         public List<TaskItem> Tasks = new();
 
+        // Lista wydarzeń do SelectList w formularzu
+        public List<ScrumEvent> Events { get; set; } = new();
+
         public async Task OnGetAsync()
         {
-            Tasks = await _context.Tasks.OrderBy(task => task.StartDate).ToListAsync();
+            // Pobieramy zadania wraz z przypisanym wydarzeniem
+            Tasks = await _context.Tasks
+                .Include(t => t.ScrumEvent)
+                .OrderBy(task => task.StartDate)
+                .ToListAsync();
+
+            // Pobieramy wszystkie wydarzenia do wyboru w formularzu
+            Events = await _context.Events.OrderBy(e => e.StartDate).ToListAsync();
         }
 
         public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
-                var firstError = ModelState.Values.SelectMany(v => v.Errors).FirstOrDefault()?.ErrorMessage;
-                if (!string.IsNullOrEmpty(firstError))
-                {
-                    TempData["ToastMessage"] = firstError;
-                    TempData["ToastType"] = "danger";
-                }
                 await OnGetAsync();
                 return Page();
             }
@@ -60,14 +69,34 @@ namespace ScrumApplication.Pages.Tasks
                 return Page();
             }
 
+            // Pobranie wybranego wydarzenia
+            var selectedEvent = await _context.Events.FindAsync(EventId);
+            if (selectedEvent == null)
+            {
+                ModelState.AddModelError(nameof(EventId), "Wybrane wydarzenie nie istnieje.");
+                await OnGetAsync();
+                return Page();
+            }
+
+            // Walidacja daty zadania w zakresie wydarzenia
+            else if (StartDate < selectedEvent.StartDate || EndDate > selectedEvent.EndDate)
+            {
+                ModelState.AddModelError(nameof(EventId),
+                    "Zadanie musi zawierać się w zakresie wybranego wydarzenia.");
+                await OnGetAsync();
+                return Page();
+            }
+
             var newTask = new TaskItem
             {
                 Title = Title!,
                 Description = Description ?? "",
                 StartDate = StartDate,
                 EndDate = EndDate,
-                IsDone = false
+                IsDone = false,
+                ScrumEventId = EventId
             };
+
             _context.Tasks.Add(newTask);
             await _context.SaveChangesAsync();
 
@@ -76,6 +105,7 @@ namespace ScrumApplication.Pages.Tasks
 
             return RedirectToPage();
         }
+
 
         public async Task<IActionResult> OnPostToggleDoneAsync(int id)
         {

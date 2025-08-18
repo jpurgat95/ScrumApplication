@@ -40,12 +40,11 @@
 
         eventDidMount: function (info) {
             var desc = info.event.extendedProps?.description || '';
-            var timeText = info.timeText ? `<div><small>${info.timeText}</small></div>` : '';
+
             var content = `
-                <div><strong>${info.event.title}</strong></div>
-                ${timeText}
-                ${desc ? `<div>${desc}</div>` : ''}
-            `.trim();
+        <div><strong>${info.event.title}</strong></div>
+        ${desc ? `<div>${desc}</div>` : ''}
+    `.trim();
 
             info.el.setAttribute('data-bs-toggle', 'tooltip');
             info.el.setAttribute('data-bs-html', 'true');
@@ -58,6 +57,7 @@
 
             info.el._fcTooltip = tip;
         },
+
         eventWillUnmount: function (info) {
             if (info.el._fcTooltip) {
                 info.el._fcTooltip.dispose();

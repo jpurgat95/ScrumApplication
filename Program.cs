@@ -2,7 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Data;
 
 var builder = WebApplication.CreateBuilder(args);
-
+// Dodaj SignalR
+builder.Services.AddSignalR();
 // Dodanie po³¹czenia do bazy
 builder.Services.AddDbContext<ScrumDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -10,7 +11,8 @@ builder.Services.AddDbContext<ScrumDbContext>(options =>
 builder.Services.AddRazorPages();
 
 var app = builder.Build();
-
+// Mapowanie hubu
+app.MapHub<TaskHub>("/taskHub");
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

@@ -13,5 +13,7 @@
         public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
 
         public bool IsDone { get; set; } = false;
+        public int ScrumEventId { get; set; }
+        public ScrumEvent? ScrumEvent { get; set; }
     }
 }

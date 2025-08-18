@@ -18,28 +18,45 @@
                         <input asp-for="Title" class="form-control" placeholder="Wprowadź tytuł zadania" />
                         <span asp-validation-for="Title" class="text-danger"></span>
                     </div>
+
                     <div class="mb-3">
                         <label asp-for="Description" class="form-label">Opis zadania</label>
                         <textarea asp-for="Description" class="form-control" placeholder="Dodaj krótki opis"></textarea>
                         <span asp-validation-for="Description" class="text-danger"></span>
                     </div>
+
+                    <div class="mb-3">
+                        <label asp-for="EventId" class="form-label">Wydarzenie SCRUM</label>
+                        <select asp-for="EventId" class="form-select">
+                            <option value="">-- Wybierz wydarzenie --</option>
+                            @foreach (var ev in Model.Events)
+                            {
+                                <option value="@ev.Id">@ev.Title (@ev.StartDate.ToString("yyyy-MM-dd HH:mm") : @ev.EndDate.ToString("yyyy-MM-dd HH:mm"))</option>
+                            }
+                        </select>
+                        <span asp-validation-for="EventId" class="text-danger"></span>
+                    </div>
+
                     <div class="col-md-12 mb-3">
-                        <label for="StartDate" class="form-label">Data rozpoczęcia</label>
-                        <input name="StartDate" type="datetime-local" class="form-control"
-                               value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                        <label asp-for="StartDate" class="form-label">Data rozpoczęcia</label>
+                        <input asp-for="StartDate" type="datetime-local" class="form-control"
+                               value="@Model.StartDate.ToString("yyyy-MM-ddTHH:mm")" />
                         <span asp-validation-for="StartDate" class="text-danger"></span>
                     </div>
+
                     <div class="col-md-12 mb-3">
-                        <label for="EndDate" class="form-label">Data zakończenia</label>
-                        <input name="EndDate" type="datetime-local" class="form-control"
-                               value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                        <label asp-for="EndDate" class="form-label">Data zakończenia</label>
+                        <input asp-for="EndDate" type="datetime-local" class="form-control"
+                               value="@Model.EndDate.ToString("yyyy-MM-ddTHH:mm")" />
                         <span asp-validation-for="EndDate" class="text-danger"></span>
                     </div>
+
                     <button type="submit" class="btn btn-success mt-auto">
                         <i class="bi bi-plus-circle"></i> Dodaj zadanie
                     </button>
                 </form>
             </div>
+
 
             <!-- Kalendarz -->
             <div class="col-md-6 ps-3 d-flex flex-column">
@@ -67,6 +84,7 @@
                 <tr>
                     <th>Tytuł</th>
                     <th>Opis</th>
+                    <th>Wydarzenie</th> <!-- nowa kolumna -->
                     <th>Data rozpoczęcia</th>
                     <th>Data zakończenia</th>
                     <th>Status</th>
@@ -79,6 +97,7 @@
                     <tr>
                         <td>@task.Title</td>
                         <td>@task.Description</td>
+                        <td>@task.ScrumEvent.Title</td>
                         <td>@task.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
                         <td>@task.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
                         <td>
@@ -92,12 +111,19 @@
                             }
                         </td>
                         <td>
-                            <a asp-page="./Edit" asp-route-id="@task.Id" class="btn btn-sm btn-outline-secondary me-1" title="Edytuj zadanie">
-                                <i class="bi bi-pencil"></i>
-                            </a>
+                            @if (task.ScrumEvent.IsDone)
+                            {
+                                <!-- Edycja zablokowana, zmieniona ikona -->
+                                <button type="button" class="btn btn-sm btn-secondary me-1"
+                                        onclick="showToast('Nie można edytować zadania, wydarzenie jest zakończone!')"
+                                        title="Nie można edytować">
+                                    <i class="bi bi-lock"></i>
+                                </button>
 
-                            <form method="post" asp-page-handler="ToggleDone" asp-route-id="@task.Id" class="d-inline me-1">
-                                <button type="submit" class="btn btn-sm btn-outline-primary" title="Zmień status">
+                                <!-- Zmiana statusu zablokowana -->
+                                <button type="button" class="btn btn-sm btn-secondary me-1"
+                                        onclick="showToast('Nie można zmienić statusu zadania, wydarzenie jest zakończone!')"
+                                        title="Nie można zmienić statusu">
                                     @if (task.IsDone)
                                     {
                                         <i class="bi bi-arrow-counterclockwise"></i>
@@ -107,7 +133,28 @@
                                         <i class="bi bi-check2"></i>
                                     }
                                 </button>
-                            </form>
+                            }
+                            else
+                            {
+                                <!-- Normalny przycisk edycji -->
+                                <a asp-page="./Edit" asp-route-id="@task.Id" class="btn btn-sm btn-outline-secondary me-1" title="Edytuj zadanie">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
+                                <!-- Normalny przycisk zmiany statusu -->
+                                <form method="post" asp-page-handler="ToggleDone" asp-route-id="@task.Id" class="d-inline me-1">
+                                    <button type="submit" class="btn btn-sm btn-outline-primary" title="Zmień status">
+                                        @if (task.IsDone)
+                                        {
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-check2"></i>
+                                        }
+                                    </button>
+                                </form>
+                            }
 
                             <!-- Przycisk wywołujący modal -->
                             <button type="button" class="btn btn-sm btn-outline-danger"
@@ -118,12 +165,14 @@
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
+
                     </tr>
                 }
             </tbody>
         </table>
     </div>
 </div>
+
 
 
 <!-- Modal potwierdzenia usunięcia -->
@@ -193,5 +242,21 @@
                 document.addEventListener('DOMContentLoaded', function () {
                     initCalendar('/Api/Tasks'); // ← tutaj podajesz swój endpoint
                 });
+    </script>
+    <!-- SignalR connection-->
+    <script>
+            const connection = new signalR.HubConnectionBuilder()
+        .withUrl("/taskHub")
+        .build();
+                // Funkcja wywoływana przez SignalR
+        connection.on("TaskUpdated", function () {
+            // Tutaj odśwież tabelę zadań np. przeładowanie całej strony:
+            location.reload();
+        });
+
+        // Uruchom połączenie
+        connection.start().catch(function (err) {
+            return console.error(err.toString());
+        });
     </script>
 }

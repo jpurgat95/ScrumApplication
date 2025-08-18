@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Data;
 using ScrumApplication.Models;
@@ -11,10 +12,12 @@ namespace ScrumApplication.Pages.Events
     public class IndexModel : PageModel
     {
         private readonly ScrumDbContext _context;
+        private readonly IHubContext<TaskHub> _hubContext;
 
-        public IndexModel(ScrumDbContext context)
+        public IndexModel(ScrumDbContext context, IHubContext<TaskHub> hubContext)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         [BindProperty]
@@ -92,6 +95,9 @@ namespace ScrumApplication.Pages.Events
 
                 TempData["ToastMessage"] = ev.IsDone ? "Wydarzenie oznaczone jako wykonane" : "Wydarzenie oznaczone jako niewykonane";
                 TempData["ToastType"] = ev.IsDone ? "success" : "warning";
+
+                // Tutaj wysyłamy sygnał do wszystkich klientów SignalR
+                await _hubContext.Clients.All.SendAsync("TaskUpdated");
             }
 
             return RedirectToPage();
