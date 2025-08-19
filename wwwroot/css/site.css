@@ -1,23 +1,198 @@
-html {
-  font-size: 14px;
-}
-
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
-}
-
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
-}
-
-html {
-  position: relative;
-  min-height: 100%;
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-    margin-bottom: 60px;
-    background-color: #a3c293; /* ciemniejszy pastelowy zielony */
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #8adb96; /* pastelowy zielony */
 }
+
+main.container {
+    flex: 1;
+}
+
+header.navbar {
+    background-color: #40916c; /* ciemniejszy zielony */
+}
+
+    header.navbar a {
+        color: white !important;
+    }
+
+footer {
+    background-color: #40916c;
+    color: white;
+    padding: 1rem 0;
+    margin-top: 2rem;
+}
+
+.custom-checkbox {
+    border: 2px solid #14532d; /* ciemnozielony */
+    width: 1.2em;
+    height: 1.2em;
+}
+
+    .custom-checkbox:checked {
+        border: 1px solid #ced4da; /* domyœlny jasny */
+    }
+
+/* Style dla Kalendarza JS */
+#calendar {
+    background: #76e385;
+    border-radius: 10px;
+    padding: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    font-size: 0.95rem;
+    min-height: 100%;
+}
+
+.fc-toolbar-title {
+    font-size: 1.4rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.fc-button {
+    background-color: #0d6efd;
+    border: none;
+    border-radius: 5px;
+    color: white !important;
+    transition: background-color 0.2s;
+}
+
+    .fc-button:hover {
+        background-color: #0b5ed7;
+    }
+
+.fc-day-today {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+.fc-event {
+    border-radius: 5px;
+    padding: 6px 8px;
+    font-size: 0.8rem;
+    color: #fff !important;
+    white-space: normal;
+}
+
+.fc-event-time {
+    display: none;
+}
+
+.fc-toolbar-chunk .fc-button {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    margin: 0 3px;
+    border-radius: 5px;
+}
+
+.fc .fc-toolbar-title {
+    font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+    .fc .fc-toolbar-chunk .fc-today-button {
+        margin-top: 8px !important;
+        display: inline-block !important;
+    }
+
+    .fc .fc-toolbar-chunk .fc-button {
+        padding: .25rem .5rem;
+        font-size: .875rem;
+        margin-right: .25rem;
+    }
+}
+
+/* Tooltipy kolorki */
+.tooltip-inner {
+    background-color: #c8f7c5 !important;
+    color: #000 !important;
+    border: 1px solid #8fd98f;
+    font-size: 0.9rem;
+    padding: 6px 10px;
+}
+
+.tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: #c8f7c5 !important;
+}
+
+.tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: #c8f7c5 !important;
+}
+
+.tooltip.bs-tooltip-start .tooltip-arrow::before {
+    border-left-color: #c8f7c5 !important;
+}
+
+.tooltip.bs-tooltip-end .tooltip-arrow::before {
+    border-right-color: #c8f7c5 !important;
+}
+
+/* Kolor statusu wydarzeñ */
+.event-done {
+    background-color: #198754 !important;
+    border-color: #198754 !important;
+}
+
+.event-pending {
+    background-color: #ffc107 !important;
+    border-color: #ffc107 !important;
+}
+/* Ramka ciemnozielona dla niezaznaczonego checkboxa */
+.form-check-input.custom-checkbox {
+    border: 0.5px solid #0b3d24 ; /* ciemnozielona */
+    border-radius: 0.25rem;
+}
+/* Zmiana koloru t³a przy zaznaczeniu checkboxa */
+    .form-check-input.custom-checkbox:checked 
+{
+    background-color: #28a745; /* zielone wype³nienie */
+    border-color: #28a745;
+}
+/*Opis strony*/
+.app-description {
+    background-color: #eaf4ed; /* jasna zieleñ */
+    border-left: 5px solid #155724; /* ciemnozielony akcent */
+    padding: 20px;
+    margin: 20px 0;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    color: #1c1c1c;
+    line-height: 1.6;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.app-description strong 
+{
+    color: #155724; /* podkreœlenie najwa¿niejszych s³ów */
+}
+.app-description-dark {
+    background-color: #0f2b1d; /* bardzo ciemna zieleñ */
+    border-left: 5px solid #28a745; /* jasny zielony akcent */
+    padding: 25px;
+    margin: 20px 0;
+    border-radius: 10px;
+    font-size: 1.1rem;
+    color: #e6f4ea; /* jasny tekst */
+    line-height: 1.6;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Delikatny efekt hover */
+.app-description-dark:hover 
+{
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.app-description-dark strong 
+{
+    color: #28a745; /* podkreœlenie s³ów kluczowych */
+}
+

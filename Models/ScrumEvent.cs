@@ -1,4 +1,6 @@
-﻿namespace ScrumApplication.Models
+﻿using Microsoft.AspNetCore.Identity;
+
+namespace ScrumApplication.Models
 {
     public class ScrumEvent
     {
@@ -13,6 +15,8 @@
         public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
 
         public bool IsDone { get; set; } = false;
+        public string UserId { get; set; }
+        public IdentityUser User { get; set; }
         public ICollection<TaskItem> Tasks { get; set; } = new List<TaskItem>();
     }
 }

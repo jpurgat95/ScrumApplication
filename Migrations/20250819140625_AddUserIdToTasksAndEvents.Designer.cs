@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ScrumApplication.Data;
 
@@ -11,9 +12,11 @@ using ScrumApplication.Data;
 namespace ScrumApplication.Migrations
 {
     [DbContext(typeof(ScrumDbContext))]
-    partial class ScrumDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250819140625_AddUserIdToTasksAndEvents")]
+    partial class AddUserIdToTasksAndEvents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -253,7 +256,7 @@ namespace ScrumApplication.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Events", (string)null);
+                    b.ToTable("Events");
                 });
 
             modelBuilder.Entity("ScrumApplication.Models.TaskItem", b =>
@@ -294,7 +297,7 @@ namespace ScrumApplication.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Tasks", (string)null);
+                    b.ToTable("Tasks");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

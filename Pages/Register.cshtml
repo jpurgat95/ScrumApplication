@@ -1,0 +1,34 @@
+﻿@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "Rejestracja";
+}
+<div class="d-flex justify-content-center align-items-center" style="min-height: 100vh; ">
+    <div class="card shadow-lg p-5" style="max-width: 450px; width: 100%; border-radius: 1rem; background-color: #e8f5e9;">
+        <div class="card-body">
+            <h2 class="text-center mb-4 text-dark">Rejestracja</h2>
+            <form method="post">
+                <div class="mb-3">
+                    <label>Email</label>
+                    <input asp-for="Input.Email" class="form-control" autocomplete="username" />
+                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                </div>
+                <div class="mb-3">
+                    <label>Hasło</label>
+                    <input asp-for="Input.Password" type="password" class="form-control" autocomplete="new-password" />
+                    <span asp-validation-for="Input.Password" class="text-danger"></span>
+                </div>
+                <div class="mb-3">
+                    <label>Powtórz hasło</label>
+                    <input asp-for="Input.ConfirmPassword" type="password" class="form-control" autocomplete="new-password" />
+                    <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
+                </div>
+                <button type="submit" class="btn btn-success">Zarejestruj się</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

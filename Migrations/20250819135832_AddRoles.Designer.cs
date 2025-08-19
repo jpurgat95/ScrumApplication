@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using ScrumApplication.Data;
 
@@ -11,9 +12,11 @@ using ScrumApplication.Data;
 namespace ScrumApplication.Migrations
 {
     [DbContext(typeof(ScrumDbContext))]
-    partial class ScrumDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250819135832_AddRoles")]
+    partial class AddRoles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -245,15 +248,9 @@ namespace ScrumApplication.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Events", (string)null);
+                    b.ToTable("Events");
                 });
 
             modelBuilder.Entity("ScrumApplication.Models.TaskItem", b =>
@@ -284,17 +281,11 @@ namespace ScrumApplication.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("ScrumEventId");
 
-                    b.HasIndex("UserId");
-
-                    b.ToTable("Tasks", (string)null);
+                    b.ToTable("Tasks");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -348,17 +339,6 @@ namespace ScrumApplication.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ScrumApplication.Models.ScrumEvent", b =>
-                {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("ScrumApplication.Models.TaskItem", b =>
                 {
                     b.HasOne("ScrumApplication.Models.ScrumEvent", "ScrumEvent")
@@ -367,15 +347,7 @@ namespace ScrumApplication.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.Navigation("ScrumEvent");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("ScrumApplication.Models.ScrumEvent", b =>
