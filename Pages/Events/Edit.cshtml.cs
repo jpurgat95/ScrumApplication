@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Data;
 using ScrumApplication.Models;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 namespace ScrumApplication.Pages.Events
 {
@@ -14,6 +16,7 @@ namespace ScrumApplication.Pages.Events
         {
             _context = context;
         }
+
         [BindProperty]
         public int Id { get; set; }
 
@@ -32,9 +35,15 @@ namespace ScrumApplication.Pages.Events
         [BindProperty]
         [Required(ErrorMessage = "Data zakończenia jest wymagana")]
         public DateTime EndDate { get; set; }
+
         public async Task<IActionResult> OnGetAsync(int id)
         {
-            var ev = await _context.Events.FindAsync(id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            // Pobieramy wydarzenie, ale filtrujemy wg roli
+            var ev = User.IsInRole("Admin")
+                ? await _context.Events.FirstOrDefaultAsync(e => e.Id == id)
+                : await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
 
             if (ev == null)
                 return NotFound();
@@ -61,7 +70,13 @@ namespace ScrumApplication.Pages.Events
                 return Page();
             }
 
-            var ev = await _context.Events.FindAsync(Id);
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            // Szukamy wydarzenia, ale użytkownik widzi tylko swoje (chyba że Admin)
+            var ev = User.IsInRole("Admin")
+                ? await _context.Events.FirstOrDefaultAsync(e => e.Id == Id)
+                : await _context.Events.FirstOrDefaultAsync(e => e.Id == Id && e.UserId == userId);
+
             if (ev == null)
                 return NotFound();
 

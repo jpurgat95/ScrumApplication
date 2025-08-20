@@ -30,8 +30,10 @@ builder.Services.ConfigureApplicationCookie(options =>
 builder.Services.AddRazorPages();
 
 var app = builder.Build();
+
 // Mapowanie hubu
-app.MapHub<TaskHub>("/taskHub");
+app.MapHub<UpdatesHub>("/updatesHub");
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {

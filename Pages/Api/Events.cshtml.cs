@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using ScrumApplication.Data; // namespace Twojego DbContext
 using System.Linq;
+using System.Security.Claims;
 
 namespace ScrumApplication.Pages.Api;
-
+[Authorize] // tylko zalogowani użytkownicy mogą uzyskać dostęp do tego API
 public class EventsModel : PageModel
 {
     private readonly ScrumDbContext _context;
@@ -16,7 +18,13 @@ public class EventsModel : PageModel
 
     public IActionResult OnGet()
     {
-        var events = _context.Events
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        //Jeśli użytkownik jest administratorem, pobierz wszystkie wydarzenia
+        var tasksQuery = User.IsInRole("Admin") 
+            ? _context.Events 
+            : _context.Events.Where(e => e.UserId == userId);
+
+        var events = tasksQuery
             .Select(e => new
             {
                 id = e.Id,
@@ -24,7 +32,8 @@ public class EventsModel : PageModel
                 description = e.Description,
                 start = e.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
                 end = e.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
-                isDone = e.IsDone
+                isDone = e.IsDone,
+                userId = e.UserId
             })
             .ToList();
 
@@ -32,7 +41,12 @@ public class EventsModel : PageModel
     }
     public IActionResult OnPostToggleDone(int id)
     {
-        var ev = _context.Events.FirstOrDefault(e => e.Id == id);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        // admin może zmieniać każde wydarzenie, user tylko swoje
+        var ev = User.IsInRole("Admin")
+            ? _context.Events.FirstOrDefault(e => e.Id == id)
+            : _context.Events.FirstOrDefault(e => e.Id == id && e.UserId == userId);
+
         if (ev != null)
         {
             ev.IsDone = !ev.IsDone;

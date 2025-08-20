@@ -72,18 +72,22 @@
                     <th>Data rozpoczęcia</th>
                     <th>Data zakończenia</th>
                     <th>Status</th>
+                    @if (User.IsInRole("Admin"))
+                    {
+                        <th>Użytkownik</th>
+                    }
                     <th>Akcje</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var ev in Model.Events)
                 {
-                    <tr>
-                        <td>@ev.Title</td>
-                        <td>@ev.Description</td>
-                        <td>@ev.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
-                        <td>@ev.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
-                        <td>
+                    <tr id="event-@ev.Id">
+                        <td class="event-title">@ev.Title</td>
+                        <td class="event-desc">@ev.Description</td>
+                        <td class="event-start">@ev.StartDate.ToString("dd.MM.yyyy HH:mm")</td>
+                        <td class="event-end">@ev.EndDate.ToString("dd.MM.yyyy HH:mm")</td>
+                        <td class="event-status">
                             @if (ev.IsDone)
                             {
                                 <span class="badge bg-success">Wykonane</span>
@@ -93,6 +97,13 @@
                                 <span class="badge bg-warning text-dark">W trakcie</span>
                             }
                         </td>
+
+                        @* Kolumna użytkownika tylko dla admina *@
+                        @if (User.IsInRole("Admin"))
+                        {
+                            <td>@ev.User?.UserName</td>
+                        }
+
                         <td>
                             <a asp-page="./Edit" asp-route-id="@ev.Id" class="btn btn-sm btn-outline-secondary me-1" title="Edytuj wydarzenie">
                                 <i class="bi bi-pencil"></i>
@@ -111,7 +122,6 @@
                                 </button>
                             </form>
 
-
                             <!-- Przycisk wywołujący modal -->
                             <button type="button" class="btn btn-sm btn-outline-danger"
                                     data-bs-toggle="modal"
@@ -128,6 +138,7 @@
     </div>
 </div>
 
+
 <!-- Modal potwierdzenia usunięcia -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -140,11 +151,13 @@
                 Czy na pewno chcesz usunąć to wydarzenie? Tej operacji nie można cofnąć.
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
-                <form method="post" asp-page-handler="Delete" id="deleteForm">
-                    <input type="hidden" name="id" id="deleteId" />
-                    <input type="hidden" name="type" value="event" />
-                    <button type="submit" class="btn btn-danger">Usuń</button>
+                <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                    Anuluj
+                </button>
+                <form id="deleteForm" method="post" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-danger">
+                        <i class="bi bi-trash me-1"></i> Usuń
+                    </button>
                 </form>
             </div>
         </div>
@@ -194,6 +207,17 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             initCalendar('/Api/Events'); // ← tutaj podajesz swój endpoint
+        });
+    </script>
+    <!-- Skrypt do modala-->
+    <script>
+        // Ustawienie action formularza przy otwieraniu modala
+        var deleteModal = document.getElementById('deleteModal');
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var eventId = button.getAttribute('data-id');
+            var form = deleteModal.querySelector('#deleteForm');
+            form.action = `/Events?handler=Delete&id=${eventId}`;
         });
     </script>
 }

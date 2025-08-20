@@ -1,20 +1,23 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Data;
 using ScrumApplication.Models;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace ScrumApplication.Pages.Events
 {
+    [Authorize] // Sprawdź, czy użytkownik jest zalogowany
     public class IndexModel : PageModel
     {
         private readonly ScrumDbContext _context;
-        private readonly IHubContext<TaskHub> _hubContext;
+        private readonly IHubContext<UpdatesHub> _hubContext;
 
-        public IndexModel(ScrumDbContext context, IHubContext<TaskHub> hubContext)
+        public IndexModel(ScrumDbContext context, IHubContext<UpdatesHub> hubContext)
         {
             _context = context;
             _hubContext = hubContext;
@@ -40,7 +43,22 @@ namespace ScrumApplication.Pages.Events
 
         public async Task OnGetAsync()
         {
-            Events = await _context.Events.OrderBy(e => e.StartDate).ToListAsync();
+            if (User.IsInRole("Admin"))
+            {
+                Events = await _context.Events
+                    .Include(e => e.User) // <-- to ładuje pełnego użytkownika
+                    .OrderBy(e => e.StartDate)
+                    .ToListAsync();
+            }
+            else
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                Events = await _context.Events
+                    .Include(e => e.User)
+                    .Where(e => e.UserId == userId)
+                    .OrderBy(e => e.StartDate)
+                    .ToListAsync();
+            }
         }
 
         public async Task<IActionResult> OnPostAsync()
@@ -61,11 +79,11 @@ namespace ScrumApplication.Pages.Events
             if (EndDate <= StartDate)
             {
                 ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
-                //TempData["ToastMessage"] = "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.";
-                //TempData["ToastType"] = "danger";
                 await OnGetAsync();
                 return Page(); 
             }
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var newEvent = new ScrumEvent
             {
@@ -73,11 +91,30 @@ namespace ScrumApplication.Pages.Events
                 Description = Description ?? "",
                 StartDate = StartDate,
                 EndDate = EndDate,
-                IsDone = false
+                IsDone = false,
+                UserId = userId
             };
 
             _context.Events.Add(newEvent);
             await _context.SaveChangesAsync();
+
+            // Pobierz nazwę użytkownika
+            var user = await _context.Users.FindAsync(userId);
+
+            var eventDto = new
+            {
+                id = newEvent.Id,
+                title = newEvent.Title,
+                description = newEvent.Description,
+                startDate = newEvent.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                endDate = newEvent.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                isDone = newEvent.IsDone,
+                userName = user?.UserName ?? "",
+                canEdit = true,   // lub logika np. User.IsInRole("Admin")
+                canDelete = true  // podobnie
+            };
+
+            await _hubContext.Clients.All.SendAsync("EventAdded", eventDto);
 
             TempData["ToastMessage"] = "Dodano nowe wydarzenie!";
             TempData["ToastType"] = "success";
@@ -87,38 +124,48 @@ namespace ScrumApplication.Pages.Events
 
         public async Task<IActionResult> OnPostToggleDoneAsync(int id)
         {
-            var ev = await _context.Events.FindAsync(id);
-            if (ev != null)
-            {
-                ev.IsDone = !ev.IsDone;
-                await _context.SaveChangesAsync();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                TempData["ToastMessage"] = ev.IsDone ? "Wydarzenie oznaczone jako wykonane" : "Wydarzenie oznaczone jako niewykonane";
-                TempData["ToastType"] = ev.IsDone ? "success" : "warning";
+            var ev = User.IsInRole("Admin")
+                ? await _context.Events.FirstOrDefaultAsync(e => e.Id == id)
+                : await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
 
-                // Tutaj wysyłamy sygnał do wszystkich klientów SignalR
-                await _hubContext.Clients.All.SendAsync("TaskUpdated");
-            }
+            if (ev == null)
+                return NotFound();
+
+            ev.IsDone = !ev.IsDone;
+
+            _context.Events.Update(ev);
+            await _context.SaveChangesAsync();
+            await _hubContext.Clients.All.SendAsync("EventAdded", ev);
+
+            TempData["ToastMessage"] = "Status wydarzenia został zmieniony";
+            TempData["ToastType"] = "success";
 
             return RedirectToPage();
         }
 
-        public async Task<IActionResult> OnPostDeleteAsync(string type, int id)
+        public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
-            if (type == "event")
-            {
-                var ev = await _context.Events.FindAsync(id);
-                if (ev != null)
-                {
-                    _context.Events.Remove(ev);
-                    await _context.SaveChangesAsync();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-                    TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
-                    TempData["ToastType"] = "danger";
-                }
-            }
+            var ev = User.IsInRole("Admin")
+                ? await _context.Events.FirstOrDefaultAsync(e => e.Id == id)
+                : await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+
+            if (ev == null)
+                return NotFound();
+
+            _context.Events.Remove(ev);
+            await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.All.SendAsync("EventDeleted", ev);
+
+            TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
+            TempData["ToastType"] = "danger";
 
             return RedirectToPage();
+
         }
     }
 }
