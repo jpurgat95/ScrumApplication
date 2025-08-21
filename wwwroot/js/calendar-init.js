@@ -1,4 +1,5 @@
-﻿function initCalendar(apiUrl) {
+﻿var calendar;
+function initCalendar(apiUrl) {
     var calendarEl = document.getElementById('calendar');
 
     if (!calendarEl) {
@@ -6,7 +7,7 @@
         return;
     }
 
-    var calendar = new FullCalendar.Calendar(calendarEl, {
+    calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         headerToolbar: {
             left: 'prev,next today',
@@ -24,7 +25,11 @@
         buttonHints: {
             today: 'Przejdź do dzisiejszej daty',
             prev: 'Poprzedni miesiąc',
-            next: 'Następny miesiąc'
+            next: 'Następny miesiąc',
+            month: '    ',
+            week: '    ',
+            day: '   ',
+            list: '   '
         },
         allDayText: 'Dzień',
 

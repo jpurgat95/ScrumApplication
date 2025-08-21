@@ -121,30 +121,77 @@ namespace ScrumApplication.Pages.Events
 
             return RedirectToPage();
         }
-
         public async Task<IActionResult> OnPostToggleDoneAsync(int id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var ev = User.IsInRole("Admin")
-                ? await _context.Events.FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+            // Pobierz wydarzenie wraz z użytkownikiem
+            var ev = await _context.Events.Include(e => e.User)
+                        .FirstOrDefaultAsync(e => e.Id == id && (User.IsInRole("Admin") || e.UserId == userId));
 
             if (ev == null)
                 return NotFound();
 
+            // Zmień status
             ev.IsDone = !ev.IsDone;
-
             _context.Events.Update(ev);
             await _context.SaveChangesAsync();
-            await _hubContext.Clients.All.SendAsync("EventAdded", ev);
 
+            // DTO dla admina
+            var eventAdminDto = new
+            {
+                ev.Id,
+                ev.Title,
+                ev.Description,
+                StartDate = ev.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                EndDate = ev.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                ev.IsDone,
+                UserName = ev.User?.UserName ?? "",
+                CanEdit = true,
+                CanDelete = true
+            };
+
+            // DTO dla zwykłego użytkownika
+            var eventUserDto = new
+            {
+                ev.Id,
+                ev.Title,
+                ev.Description,
+                StartDate = ev.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                EndDate = ev.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                ev.IsDone,
+                CanEdit = true,
+                CanDelete = true
+            };
+
+            // Wyślij adminom DTO z kolumną UserName
+            var adminIds = _context.UserRoles
+                            .Where(ur => ur.RoleId == "98954494-ef5f-4a06-87e4-22ef31417c9c")
+                            .Select(ur => ur.UserId)
+                            .ToList();
+
+            if (adminIds.Any())
+            {
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
+            }
+
+            // Wyślij wszystkim innym użytkownikom (czyli zwykłym userom) DTO bez kolumny UserName
+            var userIds = _context.Users
+                            .Where(u => !adminIds.Contains(u.Id))
+                            .Select(u => u.Id)
+                            .ToList();
+
+            if (userIds.Any())
+            {
+                await _hubContext.Clients.Users(userIds).SendAsync("EventUpdated", eventUserDto);
+            }
+
+            // Toast dla wykonującego akcję
             TempData["ToastMessage"] = "Status wydarzenia został zmieniony";
             TempData["ToastType"] = "success";
 
             return RedirectToPage();
         }
-
         public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -159,13 +206,13 @@ namespace ScrumApplication.Pages.Events
             _context.Events.Remove(ev);
             await _context.SaveChangesAsync();
 
-            await _hubContext.Clients.All.SendAsync("EventDeleted", ev);
+            await _hubContext.Clients.All.SendAsync("EventDeleted", ev.Id);
 
             TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
             TempData["ToastType"] = "danger";
 
             return RedirectToPage();
-
         }
+
     }
 }
