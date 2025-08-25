@@ -45,11 +45,12 @@ function initCalendar(apiUrl) {
 
         eventDidMount: function (info) {
             var desc = info.event.extendedProps?.description || '';
-
-            var content = `
-        <div><strong>${info.event.title}</strong></div>
-        ${desc ? `<div>${desc}</div>` : ''}
-    `.trim();
+            var user = info.event.extendedProps?.userName;
+         
+            // Tworzymy treść tooltipa
+            var content = `<div><strong>${info.event.title}</strong></div>`;
+            if (desc) content += `<div>${desc}</div>`;
+            if (user) content += `<div><em> ${user}</em></div>`; // tylko dla admina
 
             info.el.setAttribute('data-bs-toggle', 'tooltip');
             info.el.setAttribute('data-bs-html', 'true');
@@ -62,6 +63,7 @@ function initCalendar(apiUrl) {
 
             info.el._fcTooltip = tip;
         },
+
 
         eventWillUnmount: function (info) {
             if (info.el._fcTooltip) {

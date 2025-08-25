@@ -114,7 +114,15 @@ namespace ScrumApplication.Pages.Events
                 canDelete = true  // podobnie
             };
 
-            await _hubContext.Clients.All.SendAsync("EventAdded", eventDto);
+            if (!User.IsInRole("Admin"))
+            {
+                // Zwykły user – wysyłamy event do wszystkich (żeby toast był widoczny)
+                await _hubContext.Clients.All.SendAsync("EventAdded", eventDto);
+            }
+            else
+            {
+                // Admin – nie wysyłamy eventu, żeby nie pojawiał się toast u userów
+            }
 
             TempData["ToastMessage"] = "Dodano nowe wydarzenie!";
             TempData["ToastType"] = "success";
@@ -205,8 +213,15 @@ namespace ScrumApplication.Pages.Events
 
             _context.Events.Remove(ev);
             await _context.SaveChangesAsync();
-
-            await _hubContext.Clients.All.SendAsync("EventDeleted", ev.Id);
+            if (!User.IsInRole("Admin"))
+            {
+                // Zwykły user – wysyłamy event do wszystkich (żeby toast był widoczny)
+                await _hubContext.Clients.All.SendAsync("EventDeleted", ev.Id);
+            }
+            else
+            {
+                // Admin – nie wysyłamy eventu, żeby nie pojawiał się toast u userów
+            }
 
             TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
             TempData["ToastType"] = "danger";

@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Data;
 using ScrumApplication.Models;
@@ -11,10 +12,12 @@ namespace ScrumApplication.Pages.Events
     public class EditEventModel : PageModel
     {
         private readonly ScrumDbContext _context;
+        private readonly IHubContext<UpdatesHub> _hubContext;
 
-        public EditEventModel(ScrumDbContext context)
+        public EditEventModel(ScrumDbContext context, IHubContext<UpdatesHub> hubContext)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         [BindProperty]
@@ -87,6 +90,54 @@ namespace ScrumApplication.Pages.Events
 
             _context.Events.Update(ev);
             await _context.SaveChangesAsync();
+            // DTO dla admina
+            var eventAdminDto = new
+            {
+                ev.Id,
+                ev.Title,
+                ev.Description,
+                StartDate = ev.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                EndDate = ev.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                ev.IsDone,
+                UserName = ev.User?.UserName ?? "",
+                CanEdit = true,
+                CanDelete = true
+            };
+
+            // DTO dla zwykłego użytkownika
+            var eventUserDto = new
+            {
+                ev.Id,
+                ev.Title,
+                ev.Description,
+                StartDate = ev.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                EndDate = ev.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                ev.IsDone,
+                CanEdit = true,
+                CanDelete = true
+            };
+
+            // Wyślij adminom DTO z kolumną UserName
+            var adminIds = _context.UserRoles
+                            .Where(ur => ur.RoleId == "98954494-ef5f-4a06-87e4-22ef31417c9c")
+                            .Select(ur => ur.UserId)
+                            .ToList();
+
+            if (adminIds.Any())
+            {
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
+            }
+
+            // Wyślij wszystkim innym użytkownikom (czyli zwykłym userom) DTO bez kolumny UserName
+            var userIds = _context.Users
+                            .Where(u => !adminIds.Contains(u.Id))
+                            .Select(u => u.Id)
+                            .ToList();
+
+            if (userIds.Any())
+            {
+                await _hubContext.Clients.Users(userIds).SendAsync("EventUpdated", eventUserDto);
+            }
 
             TempData["ToastMessage"] = "Wydarzenie zostało zaktualizowane";
             TempData["ToastType"] = "success";

@@ -2,7 +2,6 @@
     .withUrl("/updatesHub")
     .build();
 // ===== WYDARZENIA =====
-
 // Nowe wydarzenie
 connection.on("EventAdded", ev => {
     const table = $('#eventsTable').DataTable();
@@ -19,17 +18,21 @@ connection.on("EventAdded", ev => {
         ev.userName || '',
         `<div>
             ${ev.canEdit ? `<a href="/Events/Edit/${ev.id}" class="btn btn-sm btn-outline-secondary me-1" title="Edytuj"><i class="bi bi-pencil"></i></a>` : ''}
-            <form method="post" action="/Events/ToggleDone/${ev.id}" class="d-inline me-1">
-                <button type="submit" class="btn btn-sm btn-outline-primary" title="Zmień status">
+                <button class="btn btn-sm btn-outline-primary toggle-done" data-id="${ev.id}" title="Zmień status">
                     ${ev.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
                 </button>
-            </form>
             ${ev.canDelete ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${ev.id}" title="Usuń"><i class="bi bi-trash"></i></button>` : ''}
         </div>`
     ];
 
     const newRow = table.row.add(rowData).draw(false).node();
     $(newRow).attr('id', `event-${ev.id}`);
+
+    // Odświeżenie FullCalendar, jeśli jest zainicjalizowany
+    if (window.calendar) {
+        calendar.refetchEvents();
+        console.log(`🔄 FullCalendar odświeżony po aktualizacji event #${ev.id}`);
+    }
 
     // --- Toast ---
     var toastEl = document.getElementById('liveToast');
@@ -54,6 +57,12 @@ connection.on("EventDeleted", eventId => {
     toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
     toastEl.classList.add('bg-danger', 'text-white');
     new bootstrap.Toast(toastEl).show();
+
+    // Odświeżenie FullCalendar, jeśli jest zainicjalizowany
+    if (window.calendar) {
+        calendar.refetchEvents();
+        console.log(`🔄 FullCalendar odświeżony po aktualizacji event #${ev.id}`);
+    }
 });
 // Aktualizacja wydarzenia
 connection.on("EventUpdated", ev => {
@@ -119,6 +128,12 @@ connection.on("EventUpdated", ev => {
     table.row(rowIndex).data(rowData).invalidate().draw(false);
     console.log(`✅ Wiersz #${rowIndex} zaktualizowany w DataTables`);
 
+    // Odświeżenie FullCalendar, jeśli jest zainicjalizowany
+    if (window.calendar) {
+        calendar.refetchEvents();
+        console.log(`🔄 FullCalendar odświeżony po aktualizacji event #${ev.id}`);
+    }
+
     // 🔔 Toast
     const toastEl = document.getElementById('liveToast');
     const toastBody = toastEl.querySelector('.toast-body');
@@ -147,41 +162,6 @@ $(document).on('click', '.toggle-done', function (e) {
         }
     }).done(() => console.log(`✅ Wysłano toggle dla event ${id}`))
         .fail(err => console.error("❌ Błąd toggle:", err));
-});
-
-// ===== ZADANIA =====
-// Nowe zadanie
-connection.on("TaskAdded", task => {
-    console.log("Nowe zadanie:", task);
-    const tbody = document.querySelector("#tasksTable tbody");
-    if (!tbody) return;
-
-    const row = document.createElement("tr");
-    row.id = `task-${task.id}`;
-    row.innerHTML = `
-        <td class="task-title">${task.title}</td>
-        <td class="task-desc">${task.description}</td>
-        <td class="task-status">${task.isDone ? "Wykonane" : "W trakcie"}</td>
-    `;
-    tbody.appendChild(row);
-});
-
-// Usunięcie zadania
-connection.on("TaskDeleted", taskId => {
-    console.log("Usunięto zadanie o ID:", taskId);
-    const row = document.getElementById(`task-${taskId}`);
-    if (row) row.remove();
-});
-
-// Aktualizacja zadania
-connection.on("TaskUpdated", task => {
-    console.log("Zaktualizowano zadanie:", task);
-    const row = document.getElementById(`task-${task.id}`);
-    if (row) {
-        row.querySelector(".task-title").textContent = task.title;
-        row.querySelector(".task-desc").textContent = task.description;
-        row.querySelector(".task-status").textContent = task.isDone ? "Wykonane" : "W trakcie";
-    }
 });
 
 

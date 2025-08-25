@@ -33,7 +33,8 @@ public class EventsModel : PageModel
                 start = e.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
                 end = e.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
                 isDone = e.IsDone,
-                userId = e.UserId
+                userId = e.UserId,
+                userName = User.IsInRole("Admin") ? e.User.UserName : null
             })
             .ToList();
 
