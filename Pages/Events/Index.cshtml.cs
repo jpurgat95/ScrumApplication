@@ -40,6 +40,7 @@ namespace ScrumApplication.Pages.Events
         public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
 
         public List<ScrumEvent> Events = new();
+        public List<TaskItem> Tasks = new();
 
         public async Task OnGetAsync()
         {
@@ -140,6 +141,13 @@ namespace ScrumApplication.Pages.Events
             if (ev == null)
                 return NotFound();
 
+            //// Pobierz zadania
+            //var task = await _context.Tasks.Include(t => t.User)
+            //.FirstOrDefaultAsync(t => t.Id == id && (User.IsInRole("Admin") || t.UserId == userId));
+
+            //if (task == null)
+            //    return NotFound();
+
             // Zmień status
             ev.IsDone = !ev.IsDone;
             _context.Events.Update(ev);
@@ -171,8 +179,35 @@ namespace ScrumApplication.Pages.Events
                 CanEdit = true,
                 CanDelete = true
             };
+            //var taskAdminDto = new
+            //{
+            //    task.Id,
+            //    task.Title,
+            //    task.Description,
+            //    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+            //    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+            //    task.IsDone,
+            //    UserName = task.User?.UserName ?? "",
+            //    CanEdit = true,
+            //    CanDelete = true,
+            //    ScrumEventDone = task.ScrumEvent?.IsDone ?? false // <-- dodane
+            //};
 
-            // Wyślij adminom DTO z kolumną UserName
+            //var taskUserDto = new
+            //{
+            //    task.Id,
+            //    task.Title,
+            //    task.Description,
+            //    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+            //    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+            //    task.IsDone,
+            //    CanEdit = true,
+            //    CanDelete = true,
+            //    ScrumEventDone = task.ScrumEvent?.IsDone ?? false // <-- dodane
+            //};
+
+
+            //Wyślij adminom DTO z kolumną UserName
             var adminIds = _context.UserRoles
                             .Where(ur => ur.RoleId == "98954494-ef5f-4a06-87e4-22ef31417c9c")
                             .Select(ur => ur.UserId)
@@ -181,9 +216,10 @@ namespace ScrumApplication.Pages.Events
             if (adminIds.Any())
             {
                 await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
+                //await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDto);
             }
 
-            // Wyślij wszystkim innym użytkownikom (czyli zwykłym userom) DTO bez kolumny UserName
+            //Wyślij wszystkim innym użytkownikom(czyli zwykłym userom) DTO bez kolumny UserName
             var userIds = _context.Users
                             .Where(u => !adminIds.Contains(u.Id))
                             .Select(u => u.Id)
@@ -192,6 +228,7 @@ namespace ScrumApplication.Pages.Events
             if (userIds.Any())
             {
                 await _hubContext.Clients.Users(userIds).SendAsync("EventUpdated", eventUserDto);
+                //await _hubContext.Clients.Users(userIds).SendAsync("EventUpdatesTask", taskUserDto);
             }
 
             // Toast dla wykonującego akcję
@@ -213,14 +250,10 @@ namespace ScrumApplication.Pages.Events
 
             _context.Events.Remove(ev);
             await _context.SaveChangesAsync();
-            if (!User.IsInRole("Admin"))
+            // Jeżeli event nie należy do konkretnego admina, wyślij do wszystkich
+            if (ev.UserId != "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
             {
-                // Zwykły user – wysyłamy event do wszystkich (żeby toast był widoczny)
                 await _hubContext.Clients.All.SendAsync("EventDeleted", ev.Id);
-            }
-            else
-            {
-                // Admin – nie wysyłamy eventu, żeby nie pojawiał się toast u userów
             }
 
             TempData["ToastMessage"] = "Wydarzenie zostało usunięte";

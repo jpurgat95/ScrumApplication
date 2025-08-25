@@ -31,7 +31,8 @@ public class TasksModel : PageModel
                 start = t.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
                 end = t.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
                 isDone = t.IsDone,
-                userId = t.UserId
+                userId = t.UserId,
+                userName = User.IsInRole("Admin") ? t.User.UserName : null
             })
             .ToList();
 
