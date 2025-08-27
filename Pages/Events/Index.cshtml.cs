@@ -140,7 +140,24 @@ namespace ScrumApplication.Pages.Events
 
             if (ev == null)
                 return NotFound();
-
+            // Pobierz zadania
+            if (User.IsInRole("Admin"))
+            {
+                Tasks = await _context.Tasks
+                    .Include(t => t.ScrumEvent)
+                    .Include(t => t.User)
+                    .OrderBy(t => t.StartDate)
+                    .ToListAsync();               
+            }
+            else
+            {
+                Tasks = await _context.Tasks
+                    .Include(t => t.ScrumEvent)
+                    .Where(t => t.UserId == userId)
+                    .OrderBy(t => t.StartDate)
+                    .ToListAsync();
+            }
+            var task = Tasks.FirstOrDefault(t => t.ScrumEventId == ev.Id);
             //// Pobierz zadania
             //var task = await _context.Tasks.Include(t => t.User)
             //.FirstOrDefaultAsync(t => t.Id == id && (User.IsInRole("Admin") || t.UserId == userId));
@@ -179,32 +196,32 @@ namespace ScrumApplication.Pages.Events
                 CanEdit = true,
                 CanDelete = true
             };
-            //var taskAdminDto = new
-            //{
-            //    task.Id,
-            //    task.Title,
-            //    task.Description,
-            //    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
-            //    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
-            //    task.IsDone,
-            //    UserName = task.User?.UserName ?? "",
-            //    CanEdit = true,
-            //    CanDelete = true,
-            //    ScrumEventDone = task.ScrumEvent?.IsDone ?? false // <-- dodane
-            //};
+            var taskAdminDto = new
+            {
+                task.Id,
+                task.Title,
+                task.Description,
+                StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                task.IsDone,
+                UserName = task.User?.UserName ?? "",
+                CanEdit = !(task.ScrumEvent?.IsDone ?? false),
+                CanDelete = true,
+                ScrumEventDone = task.ScrumEvent?.IsDone ?? false // <-- dodane
+            };
 
-            //var taskUserDto = new
-            //{
-            //    task.Id,
-            //    task.Title,
-            //    task.Description,
-            //    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
-            //    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
-            //    task.IsDone,
-            //    CanEdit = true,
-            //    CanDelete = true,
-            //    ScrumEventDone = task.ScrumEvent?.IsDone ?? false // <-- dodane
-            //};
+            var taskUserDto = new
+            {
+                task.Id,
+                task.Title,
+                task.Description,
+                StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                task.IsDone,
+                CanEdit = !(task.ScrumEvent?.IsDone ?? false),
+                CanDelete = true,
+                ScrumEventDone = task.ScrumEvent?.IsDone ?? false // <-- dodane
+            };
 
 
             //Wyślij adminom DTO z kolumną UserName
@@ -216,7 +233,7 @@ namespace ScrumApplication.Pages.Events
             if (adminIds.Any())
             {
                 await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
-                //await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDto);
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDto);
             }
 
             //Wyślij wszystkim innym użytkownikom(czyli zwykłym userom) DTO bez kolumny UserName
@@ -228,7 +245,7 @@ namespace ScrumApplication.Pages.Events
             if (userIds.Any())
             {
                 await _hubContext.Clients.Users(userIds).SendAsync("EventUpdated", eventUserDto);
-                //await _hubContext.Clients.Users(userIds).SendAsync("EventUpdatesTask", taskUserDto);
+                await _hubContext.Clients.Users(userIds).SendAsync("EventUpdatesTask", taskUserDto);
             }
 
             // Toast dla wykonującego akcję

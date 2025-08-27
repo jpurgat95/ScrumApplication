@@ -186,20 +186,33 @@ connection.on("EventUpdatesTask", task => {
             task.startDate || '',
             task.endDate || '',
             `<span class="badge ${task.isDone ? 'bg-success' : 'bg-warning text-dark'}">
-                ${task.isDone ? 'Wykonane' : 'W trakcie'}
-            </span>`,
+            ${task.isDone ? 'Wykonane' : 'W trakcie'}
+        </span>`,
             task.userName || '',
             `<div class="d-flex gap-1">
-                ${task.canEdit ? `<a href="/Tasks/Edit/${task.id}" class="btn btn-sm btn-outline-secondary" title="Edytuj"><i class="bi bi-pencil"></i></a>` : ''}
-                ${task.scrumEventDone
+            ${task.canEdit
+                ? `<a href="/Tasks/Edit/${task.id}" class="btn btn-sm btn-outline-secondary" title="Edytuj">
+                      <i class="bi bi-pencil"></i>
+                   </a>`
+                : `<button type="button" class="btn btn-sm btn-secondary me-1" title="Nie można edytować" disabled>
+                      <i class="bi bi-lock"></i>
+                   </button>`
+            }
+            ${task.scrumEventDone
                 ? `<button class="btn btn-sm btn-secondary" title="Nie można zmienić statusu" disabled>
-                          ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
-                       </button>`
-                : `<button class="btn btn-sm btn-outline-primary toggle-done-task" data-id="${task.id}" title="Zmień status">
-                          ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
-                       </button>`}
-                ${task.canDelete ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${task.id}" title="Usuń"><i class="bi bi-trash"></i></button>` : ''}
-            </div>`
+                      ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
+                   </button>`
+                : `<button class="btn btn-sm btn-outline-primary toggle-done-task" data-id="${task.id}" title="Zmień status" ${!task.canEdit ? 'disabled' : ''}>
+                      ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
+                   </button>`
+            }
+            ${task.canDelete
+                ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${task.id}" title="Usuń">
+                      <i class="bi bi-trash"></i>
+                   </button>`
+                : ''
+            }
+        </div>`
         ];
     } else {
         // USER - wiersz bez kolumny "Użytkownik"
@@ -209,22 +222,34 @@ connection.on("EventUpdatesTask", task => {
             task.startDate || '',
             task.endDate || '',
             `<span class="badge ${task.isDone ? 'bg-success' : 'bg-warning text-dark'}">
-                ${task.isDone ? 'Wykonane' : 'W trakcie'}
-            </span>`,
+            ${task.isDone ? 'Wykonane' : 'W trakcie'}
+        </span>`,
             `<div class="d-flex gap-1">
-                ${task.canEdit ? `<a href="/Tasks/Edit/${task.id}" class="btn btn-sm btn-outline-secondary" title="Edytuj"><i class="bi bi-pencil"></i></a>` : ''}
-                ${task.scrumEventDone
+            ${task.canEdit
+                ? `<a href="/Tasks/Edit/${task.id}" class="btn btn-sm btn-outline-secondary" title="Edytuj">
+                      <i class="bi bi-pencil"></i>
+                   </a>`
+                : `<button type="button" class="btn btn-sm btn-secondary me-1" title="Nie można edytować" disabled>
+                      <i class="bi bi-lock"></i>
+                   </button>`
+            }
+            ${task.scrumEventDone
                 ? `<button class="btn btn-sm btn-secondary" title="Nie można zmienić statusu" disabled>
-                          ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
-                       </button>`
-                : `<button class="btn btn-sm btn-outline-primary toggle-done-task" data-id="${task.id}" title="Zmień status">
-                          ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
-                       </button>`}
-                ${task.canDelete ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${task.id}" title="Usuń"><i class="bi bi-trash"></i></button>` : ''}
-            </div>`
+                      ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
+                   </button>`
+                : `<button class="btn btn-sm btn-outline-primary toggle-done-task" data-id="${task.id}" title="Zmień status" ${!task.canEdit ? 'disabled' : ''}>
+                      ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
+                   </button>`
+            }
+            ${task.canDelete
+                ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${task.id}" title="Usuń">
+                      <i class="bi bi-trash"></i>
+                   </button>`
+                : ''
+            }
+        </div>`
         ];
     }
-
     // Odśwież wiersz w DataTables
     table.row(rowIndex).data(rowData).invalidate().draw(false);
 
@@ -237,11 +262,14 @@ connection.on("EventUpdatesTask", task => {
     // Toast
     const toastEl = document.getElementById('liveToast');
     const toastBody = toastEl.querySelector('.toast-body');
-    toastBody.textContent = `Zadanie "${task.title || ''}" zostało zaktualizowane`;
-
     toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
-    toastEl.classList.add('bg-success', 'text-white');
-
+    if (task.scrumEventDone) {
+        toastBody.textContent = `Edycja zadania "${task.title || ''}" została zablokowana - powiązane wydarzenie zostało wykonane!`;
+        toastEl.classList.add('bg-warning', 'text-white');
+    } else {
+        toastBody.textContent = `Edycja zadania "${task.title || ''}" jest teraz możliwa - powiązane wydarzenie jest niewykonane.`;
+            toastEl.classList.add('bg-success', 'text-white');
+    }
     new bootstrap.Toast(toastEl).show();
 });
 
