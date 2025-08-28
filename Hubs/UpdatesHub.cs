@@ -27,4 +27,16 @@ public class UpdatesHub : Hub
     {
         await Clients.All.SendAsync("EventDeleted", eventId);
     }
+    // Wysyłanie informacji o aktualizacji zadań powiązanych z wydarzeniem
+    public async Task EventUpdatesTask(int eventId, object taskDtoList)
+    {
+        await Clients.All.SendAsync("EventUpdatesTask", taskDtoList);
+    }
+
+    // Wysyłanie informacji do klienta o oznaczeniu eventu jako wykonany
+    public async Task EventMarkedDone(int eventId)
+    {
+        await Clients.All.SendAsync("EventMarkedDone", eventId);
+    }
+
 }

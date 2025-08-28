@@ -163,117 +163,6 @@ $(document).on('click', '.toggle-done', function (e) {
     }).done(() => console.log(`✅ Wysłano toggle dla event ${id}`))
         .fail(err => console.error("❌ Błąd toggle:", err));
 });
-// Wydarzenie aktualizujące zadania
-connection.on("EventUpdatesTask", task => {
-    console.log("📩 EventUpdatesTask odebrany:", task);
-
-    const table = $('#tasksTable').DataTable();
-    const row = $(`#task-${task.id}`);
-
-    if (!row.length) {
-        console.warn("⚠️ Nie znaleziono wiersza w tabeli dla task.id:", task.id);
-        return;
-    }
-
-    const rowIndex = table.row(row).index();
-    let rowData;
-
-    if (task.userName !== undefined) {
-        // ADMIN - wiersz z kolumną "Użytkownik"
-        rowData = [
-            task.title || '',
-            task.description || '',
-            task.startDate || '',
-            task.endDate || '',
-            `<span class="badge ${task.isDone ? 'bg-success' : 'bg-warning text-dark'}">
-            ${task.isDone ? 'Wykonane' : 'W trakcie'}
-        </span>`,
-            task.userName || '',
-            `<div class="d-flex gap-1">
-            ${task.canEdit
-                ? `<a href="/Tasks/Edit/${task.id}" class="btn btn-sm btn-outline-secondary" title="Edytuj">
-                      <i class="bi bi-pencil"></i>
-                   </a>`
-                : `<button type="button" class="btn btn-sm btn-secondary me-1" title="Nie można edytować" disabled>
-                      <i class="bi bi-lock"></i>
-                   </button>`
-            }
-            ${task.scrumEventDone
-                ? `<button class="btn btn-sm btn-secondary" title="Nie można zmienić statusu" disabled>
-                      ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
-                   </button>`
-                : `<button class="btn btn-sm btn-outline-primary toggle-done-task" data-id="${task.id}" title="Zmień status" ${!task.canEdit ? 'disabled' : ''}>
-                      ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
-                   </button>`
-            }
-            ${task.canDelete
-                ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${task.id}" title="Usuń">
-                      <i class="bi bi-trash"></i>
-                   </button>`
-                : ''
-            }
-        </div>`
-        ];
-    } else {
-        // USER - wiersz bez kolumny "Użytkownik"
-        rowData = [
-            task.title || '',
-            task.description || '',
-            task.startDate || '',
-            task.endDate || '',
-            `<span class="badge ${task.isDone ? 'bg-success' : 'bg-warning text-dark'}">
-            ${task.isDone ? 'Wykonane' : 'W trakcie'}
-        </span>`,
-            `<div class="d-flex gap-1">
-            ${task.canEdit
-                ? `<a href="/Tasks/Edit/${task.id}" class="btn btn-sm btn-outline-secondary" title="Edytuj">
-                      <i class="bi bi-pencil"></i>
-                   </a>`
-                : `<button type="button" class="btn btn-sm btn-secondary me-1" title="Nie można edytować" disabled>
-                      <i class="bi bi-lock"></i>
-                   </button>`
-            }
-            ${task.scrumEventDone
-                ? `<button class="btn btn-sm btn-secondary" title="Nie można zmienić statusu" disabled>
-                      ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
-                   </button>`
-                : `<button class="btn btn-sm btn-outline-primary toggle-done-task" data-id="${task.id}" title="Zmień status" ${!task.canEdit ? 'disabled' : ''}>
-                      ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
-                   </button>`
-            }
-            ${task.canDelete
-                ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${task.id}" title="Usuń">
-                      <i class="bi bi-trash"></i>
-                   </button>`
-                : ''
-            }
-        </div>`
-        ];
-    }
-    // Odśwież wiersz w DataTables
-    table.row(rowIndex).data(rowData).invalidate().draw(false);
-
-    // Odśwież kalendarz, jeśli istnieje
-    if (window.calendar) {
-        calendar.refetchEvents();
-        console.log(`🔄 FullCalendar odświeżony po aktualizacji zadania #${task.id}`);
-    }
-
-    // Toast
-    const toastEl = document.getElementById('liveToast');
-    const toastBody = toastEl.querySelector('.toast-body');
-    toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
-    if (task.scrumEventDone) {
-        toastBody.textContent = `Edycja zadania "${task.title || ''}" została zablokowana - powiązane wydarzenie zostało wykonane!`;
-        toastEl.classList.add('bg-warning', 'text-white');
-    } else {
-        toastBody.textContent = `Edycja zadania "${task.title || ''}" jest teraz możliwa - powiązane wydarzenie jest niewykonane.`;
-            toastEl.classList.add('bg-success', 'text-white');
-    }
-    new bootstrap.Toast(toastEl).show();
-});
-
-
 // ===== ZADANIA =====
 // Nowe zadanie
 connection.on("TaskAdded", task => {
@@ -406,7 +295,6 @@ connection.on("TaskUpdated", task => {
         calendar.refetchEvents();
         console.log(`🔄 FullCalendar odświeżony po aktualizacji zadania #${task.id}`);
     }
-
     // 🔔 Toast
     const toastEl = document.getElementById('liveToast');
     const toastBody = toastEl.querySelector('.toast-body');
@@ -417,7 +305,155 @@ connection.on("TaskUpdated", task => {
 
     new bootstrap.Toast(toastEl).show();
 });
+//MIESZANE
+// Wydarzenie aktualizujące zadania
+connection.on("EventUpdatesTask", tasks => {
+    console.log("📩 EventUpdatesTask odebrany:", tasks);
+    const table = $('#tasksTable').DataTable();
 
+    tasks.forEach(task => {
+        const row = $(`#task-${task.id}`);
+        if (!row.length) {
+            console.warn("⚠️ Nie znaleziono wiersza w tabeli dla task.id:", task.id);
+            return;
+        }
+        const rowIndex = table.row(row).index();
+
+        let rowData;
+        if (task.userName !== undefined) {
+            // ADMIN - wiersz z kolumną "Użytkownik"
+            rowData = [
+                task.title || '',
+                task.description || '',
+                task.startDate || '',
+                task.endDate || '',
+                `<span class="badge ${task.isDone ? 'bg-success' : 'bg-warning text-dark'}">
+                    ${task.isDone ? 'Wykonane' : 'W trakcie'}
+                </span>`,
+                task.userName || '',
+                `<div class="d-flex gap-1">
+                    ${task.canEdit
+                    ? `<a href="/Tasks/Edit/${task.id}" class="btn btn-sm btn-outline-secondary" title="Edytuj">
+                               <i class="bi bi-pencil"></i>
+                           </a>`
+                    : `<button type="button" class="btn btn-sm btn-secondary me-1" title="Nie można edytować" disabled>
+                               <i class="bi bi-lock"></i>
+                           </button>`
+                }
+                    ${task.scrumEventDone
+                    ? `<button class="btn btn-sm btn-secondary" title="Nie można zmienić statusu" disabled>
+                               ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
+                           </button>`
+                    : `<button class="btn btn-sm btn-outline-primary toggle-done-task" data-id="${task.id}" title="Zmień status" ${!task.canEdit ? 'disabled' : ''}>
+                               ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
+                           </button>`
+                }
+                    ${task.canDelete
+                    ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${task.id}" title="Usuń">
+                               <i class="bi bi-trash"></i>
+                           </button>`
+                    : ''
+                }
+                </div>`
+            ];
+        } else {
+            // USER - wiersz bez kolumny "Użytkownik"
+            rowData = [
+                task.title || '',
+                task.description || '',
+                task.startDate || '',
+                task.endDate || '',
+                `<span class="badge ${task.isDone ? 'bg-success' : 'bg-warning text-dark'}">
+                    ${task.isDone ? 'Wykonane' : 'W trakcie'}
+                </span>`,
+                `<div class="d-flex gap-1">
+                    ${task.canEdit
+                    ? `<a href="/Tasks/Edit/${task.id}" class="btn btn-sm btn-outline-secondary" title="Edytuj">
+                               <i class="bi bi-pencil"></i>
+                           </a>`
+                    : `<button type="button" class="btn btn-sm btn-secondary me-1" title="Nie można edytować" disabled>
+                               <i class="bi bi-lock"></i>
+                           </button>`
+                }
+                    ${task.scrumEventDone
+                    ? `<button class="btn btn-sm btn-secondary" title="Nie można zmienić statusu" disabled>
+                               ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
+                           </button>`
+                    : `<button class="btn btn-sm btn-outline-primary toggle-done-task" data-id="${task.id}" title="Zmień status" ${!task.canEdit ? 'disabled' : ''}>
+                               ${task.isDone ? '<i class="bi bi-arrow-counterclockwise"></i>' : '<i class="bi bi-check2"></i>'}
+                           </button>`
+                }
+                    ${task.canDelete
+                    ? `<button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal" data-id="${task.id}" title="Usuń">
+                               <i class="bi bi-trash"></i>
+                           </button>`
+                    : ''
+                }
+                </div>`
+            ];
+        }
+
+        table.row(rowIndex).data(rowData).invalidate().draw(false);
+
+        if (window.calendar) {
+            calendar.refetchEvents();
+            console.log(`🔄 FullCalendar odświeżony po aktualizacji zadania #${task.id}`);
+        }
+
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = toastEl.querySelector('.toast-body');
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
+        if (task.scrumEventDone) {
+            toastBody.textContent = `Edycja zadania "${task.title || ''}" została zablokowana - powiązane wydarzenie zostało wykonane!`;
+            toastEl.classList.add('bg-warning', 'text-white');
+        } else {
+            toastBody.textContent = `Edycja zadania "${task.title || ''}" jest teraz możliwa - powiązane wydarzenie jest niewykonane.`;
+            toastEl.classList.add('bg-success', 'text-white');
+        }
+        new bootstrap.Toast(toastEl).show();
+    });
+});
+function showToast(message, bgClass = 'bg-info', textClass = 'text-white') {
+    const toastEl = document.getElementById('liveToast');
+    const toastBody = toastEl.querySelector('.toast-body');
+    toastEl.className = 'toast'; // reset klas
+    toastBody.textContent = message;
+    toastEl.classList.add(bgClass, textClass);
+
+    const bsToast = new bootstrap.Toast(toastEl);
+    bsToast.show();
+}
+
+// Blokowanie edycji
+connection.on("BlockTaskEdit", function (taskId) {
+    console.log(`📩 Event BlockTaskEdit odebrany dla taskId: ${taskId} na stronie edycji`);
+    if (taskId === currentTaskId) {
+        console.log(`🔒 Blokowanie formularza dla zadania o ID: ${taskId}`);
+        document.querySelectorAll('input, select, textarea, button[type="submit"]').forEach(el => el.disabled = true);
+        // 🔔 Toast
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = toastEl.querySelector('.toast-body');
+        toastBody.textContent = "Edycja tego zadania została zablokowana, ponieważ powiązane wydarzenie zostało wykonane.";
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
+        toastEl.classList.add('bg-warning', 'text-white');
+        new bootstrap.Toast(toastEl).show();
+    }
+});
+// Odblokowywanie edycji
+connection.on("UnblockTaskEdit", function (taskId) {
+    console.log(`📩 Event UnblockTaskEdit odebrany dla taskId: ${taskId} na stronie edycji`);
+    if (taskId === currentTaskId) {
+        console.log(`🔓 Odblokowanie formularza dla zadania o ID: ${taskId}`);
+        document.querySelectorAll('input, select, textarea, button[type="submit"]').forEach(el => el.disabled = false);
+        // 🔔 Toast
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = toastEl.querySelector('.toast-body');
+        toastBody.textContent = "Edycja tego zadania została odblokowana.";
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
+        toastEl.classList.add('bg-success', 'text-white');
+        new bootstrap.Toast(toastEl).show();
+    }
+});
 
 // Delegowanie kliknięć toggle-done dla zadań
 $(document).on('click', '.toggle-done-task', function (e) {

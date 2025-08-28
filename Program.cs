@@ -28,6 +28,11 @@ builder.Services.ConfigureApplicationCookie(options =>
 });
 // Add services to the container.
 builder.Services.AddRazorPages();
+// Rejestracja repozytoriów
+builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<ITaskRepository, TaskRepository>();
+builder.Services.AddScoped<IUserRoleRepository, UserRoleRepository>();
+
 
 var app = builder.Build();
 

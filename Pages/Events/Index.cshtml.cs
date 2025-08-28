@@ -2,25 +2,28 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using ScrumApplication.Data;
 using ScrumApplication.Models;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace ScrumApplication.Pages.Events
 {
-    [Authorize] // Sprawdź, czy użytkownik jest zalogowany
+    [Authorize]
     public class IndexModel : PageModel
     {
-        private readonly ScrumDbContext _context;
+        private readonly IEventRepository _eventRepository;
+        private readonly ITaskRepository _taskRepository;
         private readonly IHubContext<UpdatesHub> _hubContext;
+        private readonly IUserRoleRepository _userRoleRepository;
 
-        public IndexModel(ScrumDbContext context, IHubContext<UpdatesHub> hubContext)
+        public IndexModel(IEventRepository eventRepository, ITaskRepository taskRepository, IHubContext<UpdatesHub> hubContext, IUserRoleRepository userRoleRepository)
         {
-            _context = context;
+            _eventRepository = eventRepository;
+            _taskRepository = taskRepository;
             _hubContext = hubContext;
+            _userRoleRepository = userRoleRepository;
         }
 
         [BindProperty]
@@ -39,34 +42,23 @@ namespace ScrumApplication.Pages.Events
         [Required(ErrorMessage = "Data zakończenia jest wymagana")]
         public DateTime EndDate { get; set; } = DateTime.Now.AddHours(1);
 
-        public List<ScrumEvent> Events = new();
-        public List<TaskItem> Tasks = new();
+        public List<ScrumEvent> Events { get; set; } = new();
+
+        public List<TaskItem> Tasks { get; set; } = new();
 
         public async Task OnGetAsync()
         {
-            if (User.IsInRole("Admin"))
-            {
-                Events = await _context.Events
-                    .Include(e => e.User) // <-- to ładuje pełnego użytkownika
-                    .OrderBy(e => e.StartDate)
-                    .ToListAsync();
-            }
-            else
-            {
-                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-                Events = await _context.Events
-                    .Include(e => e.User)
-                    .Where(e => e.UserId == userId)
-                    .OrderBy(e => e.StartDate)
-                    .ToListAsync();
-            }
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var isAdmin = User.IsInRole("Admin");
+
+            Events = await _eventRepository.GetEventsAsync(userId, isAdmin);
+            Tasks = await _taskRepository.GetTasksAsync(userId, isAdmin);
         }
 
         public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
             {
-                // Pobierz pierwszy błąd walidacji i wyświetl toast z błędem
                 var firstError = ModelState.Values.SelectMany(v => v.Errors).FirstOrDefault()?.ErrorMessage;
                 if (!string.IsNullOrEmpty(firstError))
                 {
@@ -81,7 +73,7 @@ namespace ScrumApplication.Pages.Events
             {
                 ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
                 await OnGetAsync();
-                return Page(); 
+                return Page();
             }
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -96,11 +88,9 @@ namespace ScrumApplication.Pages.Events
                 UserId = userId
             };
 
-            _context.Events.Add(newEvent);
-            await _context.SaveChangesAsync();
+            await _eventRepository.AddEventAsync(newEvent);
 
-            // Pobierz nazwę użytkownika
-            var user = await _context.Users.FindAsync(userId);
+            var userName = User.Identity?.Name ?? "";
 
             var eventDto = new
             {
@@ -110,19 +100,14 @@ namespace ScrumApplication.Pages.Events
                 startDate = newEvent.StartDate.ToString("yyyy-MM-dd HH:mm"),
                 endDate = newEvent.EndDate.ToString("yyyy-MM-dd HH:mm"),
                 isDone = newEvent.IsDone,
-                userName = user?.UserName ?? "",
-                canEdit = true,   // lub logika np. User.IsInRole("Admin")
-                canDelete = true  // podobnie
+                userName,
+                canEdit = true,
+                canDelete = true
             };
 
             if (!User.IsInRole("Admin"))
             {
-                // Zwykły user – wysyłamy event do wszystkich (żeby toast był widoczny)
                 await _hubContext.Clients.All.SendAsync("EventAdded", eventDto);
-            }
-            else
-            {
-                // Admin – nie wysyłamy eventu, żeby nie pojawiał się toast u userów
             }
 
             TempData["ToastMessage"] = "Dodano nowe wydarzenie!";
@@ -130,45 +115,41 @@ namespace ScrumApplication.Pages.Events
 
             return RedirectToPage();
         }
+
         public async Task<IActionResult> OnPostToggleDoneAsync(int id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var isAdmin = User.IsInRole("Admin");
 
-            // Pobierz wydarzenie wraz z użytkownikiem
-            var ev = await _context.Events.Include(e => e.User)
-                        .FirstOrDefaultAsync(e => e.Id == id && (User.IsInRole("Admin") || e.UserId == userId));
-
+            var ev = await _eventRepository.GetEventByIdAsync(id, userId, isAdmin);
             if (ev == null)
                 return NotFound();
-            // Pobierz zadania
-            if (User.IsInRole("Admin"))
-            {
-                Tasks = await _context.Tasks
-                    .Include(t => t.ScrumEvent)
-                    .Include(t => t.User)
-                    .OrderBy(t => t.StartDate)
-                    .ToListAsync();               
-            }
-            else
-            {
-                Tasks = await _context.Tasks
-                    .Include(t => t.ScrumEvent)
-                    .Where(t => t.UserId == userId)
-                    .OrderBy(t => t.StartDate)
-                    .ToListAsync();
-            }
-            var task = Tasks.FirstOrDefault(t => t.ScrumEventId == ev.Id);
-            //// Pobierz zadania
-            //var task = await _context.Tasks.Include(t => t.User)
-            //.FirstOrDefaultAsync(t => t.Id == id && (User.IsInRole("Admin") || t.UserId == userId));
 
-            //if (task == null)
-            //    return NotFound();
-
-            // Zmień status
             ev.IsDone = !ev.IsDone;
-            _context.Events.Update(ev);
-            await _context.SaveChangesAsync();
+            await _eventRepository.UpdateEventAsync(ev);
+
+            // Pobierz zadania powiązane z wydarzeniem
+            var tasks = await _taskRepository.GetTasksByEventIdAsync(ev.Id);
+
+            // Wysyłamy BlockTaskEdit do użytkowników, którzy edytują powiązane zadania
+            foreach (var task in tasks)
+            {
+                if (!string.IsNullOrEmpty(task.UserId))
+                {
+                    if (ev.IsDone)
+                    {
+                        // Jeśli event wykonany - blokuj edycję zadania
+                        await _hubContext.Clients.User(task.UserId)
+                            .SendAsync("BlockTaskEdit", task.Id);
+                    }
+                    else
+                    {
+                        // Jeśli event niewykonany - odblokuj edycję zadania
+                        await _hubContext.Clients.User(task.UserId)
+                            .SendAsync("UnblockTaskEdit", task.Id);
+                    }
+                }
+            }
 
             // DTO dla admina
             var eventAdminDto = new
@@ -184,7 +165,7 @@ namespace ScrumApplication.Pages.Events
                 CanDelete = true
             };
 
-            // DTO dla zwykłego użytkownika
+            // DTO dla użytkownika
             var eventUserDto = new
             {
                 ev.Id,
@@ -196,7 +177,9 @@ namespace ScrumApplication.Pages.Events
                 CanEdit = true,
                 CanDelete = true
             };
-            var taskAdminDto = new
+
+            // DTO zadań dla admina
+            var taskAdminDtos = tasks.Select(task => new
             {
                 task.Id,
                 task.Title,
@@ -205,12 +188,13 @@ namespace ScrumApplication.Pages.Events
                 EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
                 task.IsDone,
                 UserName = task.User?.UserName ?? "",
-                CanEdit = !(task.ScrumEvent?.IsDone ?? false),
+                CanEdit = !(ev.IsDone),
                 CanDelete = true,
-                ScrumEventDone = task.ScrumEvent?.IsDone ?? false // <-- dodane
-            };
+                ScrumEventDone = ev.IsDone
+            }).ToList();
 
-            var taskUserDto = new
+            // DTO zadań dla użytkownika
+            var taskUserDtos = tasks.Select(task => new
             {
                 task.Id,
                 task.Title,
@@ -218,37 +202,26 @@ namespace ScrumApplication.Pages.Events
                 StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
                 EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
                 task.IsDone,
-                CanEdit = !(task.ScrumEvent?.IsDone ?? false),
+                CanEdit = !(ev.IsDone),
                 CanDelete = true,
-                ScrumEventDone = task.ScrumEvent?.IsDone ?? false // <-- dodane
-            };
+                ScrumEventDone = ev.IsDone
+            }).ToList();
 
+            var adminIds = await GetAdminUserIdsAsync();
+            var userIds = await GetNonAdminUserIdsAsync(adminIds);
 
-            //Wyślij adminom DTO z kolumną UserName
-            var adminIds = _context.UserRoles
-                            .Where(ur => ur.RoleId == "98954494-ef5f-4a06-87e4-22ef31417c9c")
-                            .Select(ur => ur.UserId)
-                            .ToList();
-
-            if (adminIds.Any())
+            if (adminIds.Count > 0)
             {
                 await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
-                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDto);
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDtos);
             }
 
-            //Wyślij wszystkim innym użytkownikom(czyli zwykłym userom) DTO bez kolumny UserName
-            var userIds = _context.Users
-                            .Where(u => !adminIds.Contains(u.Id))
-                            .Select(u => u.Id)
-                            .ToList();
-
-            if (userIds.Any())
+            if (userIds.Count > 0)
             {
                 await _hubContext.Clients.Users(userIds).SendAsync("EventUpdated", eventUserDto);
-                await _hubContext.Clients.Users(userIds).SendAsync("EventUpdatesTask", taskUserDto);
+                await _hubContext.Clients.Users(userIds).SendAsync("EventUpdatesTask", taskUserDtos);
             }
 
-            // Toast dla wykonującego akcję
             TempData["ToastMessage"] = "Status wydarzenia został zmieniony";
             TempData["ToastType"] = "success";
 
@@ -257,17 +230,15 @@ namespace ScrumApplication.Pages.Events
         public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var isAdmin = User.IsInRole("Admin");
 
-            var ev = User.IsInRole("Admin")
-                ? await _context.Events.FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
-
+            var ev = await _eventRepository.GetEventByIdAsync(id, userId, isAdmin);
             if (ev == null)
                 return NotFound();
 
-            _context.Events.Remove(ev);
-            await _context.SaveChangesAsync();
-            // Jeżeli event nie należy do konkretnego admina, wyślij do wszystkich
+            await _eventRepository.DeleteEventAsync(ev);
+
+            // Powiadom wszystkich jeśli event usuwany jest nie przez konkretnego admina
             if (ev.UserId != "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
             {
                 await _hubContext.Clients.All.SendAsync("EventDeleted", ev.Id);
@@ -277,6 +248,17 @@ namespace ScrumApplication.Pages.Events
             TempData["ToastType"] = "danger";
 
             return RedirectToPage();
+        }
+
+        private async Task<List<string>> GetAdminUserIdsAsync()
+        {
+            const string adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // zastąp właściwym ID roli
+            return await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+        }
+
+        private async Task<List<string>> GetNonAdminUserIdsAsync(List<string> adminIds)
+        {
+            return await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
         }
 
     }

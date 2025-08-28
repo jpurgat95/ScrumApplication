@@ -1,22 +1,26 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using ScrumApplication.Data;
 using ScrumApplication.Models;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace ScrumApplication.Pages.Events
 {
+    [Authorize]
     public class EditEventModel : PageModel
     {
-        private readonly ScrumDbContext _context;
+        private readonly IEventRepository _eventRepository;
+        private readonly IUserRoleRepository _userRoleRepository;
         private readonly IHubContext<UpdatesHub> _hubContext;
 
-        public EditEventModel(ScrumDbContext context, IHubContext<UpdatesHub> hubContext)
+        public EditEventModel(IEventRepository eventRepository, IUserRoleRepository userRoleRepository, IHubContext<UpdatesHub> hubContext)
         {
-            _context = context;
+            _eventRepository = eventRepository;
+            _userRoleRepository = userRoleRepository;
             _hubContext = hubContext;
         }
 
@@ -42,11 +46,9 @@ namespace ScrumApplication.Pages.Events
         public async Task<IActionResult> OnGetAsync(int id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var isAdmin = User.IsInRole("Admin");
 
-            // Pobieramy wydarzenie, ale filtrujemy wg roli
-            var ev = User.IsInRole("Admin")
-                ? await _context.Events.FirstOrDefaultAsync(e => e.Id == id)
-                : await _context.Events.FirstOrDefaultAsync(e => e.Id == id && e.UserId == userId);
+            var ev = await _eventRepository.GetEventByIdAsync(id, userId, isAdmin);
 
             if (ev == null)
                 return NotFound();
@@ -74,11 +76,9 @@ namespace ScrumApplication.Pages.Events
             }
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var isAdmin = User.IsInRole("Admin");
 
-            // Szukamy wydarzenia, ale użytkownik widzi tylko swoje (chyba że Admin)
-            var ev = User.IsInRole("Admin")
-                ? await _context.Events.FirstOrDefaultAsync(e => e.Id == Id)
-                : await _context.Events.FirstOrDefaultAsync(e => e.Id == Id && e.UserId == userId);
+            var ev = await _eventRepository.GetEventByIdAsync(Id, userId, isAdmin);
 
             if (ev == null)
                 return NotFound();
@@ -88,9 +88,9 @@ namespace ScrumApplication.Pages.Events
             ev.StartDate = StartDate;
             ev.EndDate = EndDate;
 
-            _context.Events.Update(ev);
-            await _context.SaveChangesAsync();
-            // DTO dla admina
+            await _eventRepository.UpdateEventAsync(ev);
+
+            // Przygotowanie DTO do wysyłki przez SignalR
             var eventAdminDto = new
             {
                 ev.Id,
@@ -104,7 +104,6 @@ namespace ScrumApplication.Pages.Events
                 CanDelete = true
             };
 
-            // DTO dla zwykłego użytkownika
             var eventUserDto = new
             {
                 ev.Id,
@@ -117,26 +116,16 @@ namespace ScrumApplication.Pages.Events
                 CanDelete = true
             };
 
-            // Wyślij adminom DTO z kolumną UserName
-            var adminIds = _context.UserRoles
-                            .Where(ur => ur.RoleId == "98954494-ef5f-4a06-87e4-22ef31417c9c")
-                            .Select(ur => ur.UserId)
-                            .ToList();
-
-            if (adminIds.Any())
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync("98954494-ef5f-4a06-87e4-22ef31417c9c"); // id roli admina
+            if (adminIds.Count > 0)
             {
                 await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
             }
 
-            // Wyślij wszystkim innym użytkownikom (czyli zwykłym userom) DTO bez kolumny UserName
-            var userIds = _context.Users
-                            .Where(u => !adminIds.Contains(u.Id))
-                            .Select(u => u.Id)
-                            .ToList();
-
-            if (userIds.Any())
+            var nonAdminIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
+            if (nonAdminIds.Count > 0)
             {
-                await _hubContext.Clients.Users(userIds).SendAsync("EventUpdated", eventUserDto);
+                await _hubContext.Clients.Users(nonAdminIds).SendAsync("EventUpdated", eventUserDto);
             }
 
             TempData["ToastMessage"] = "Wydarzenie zostało zaktualizowane";
