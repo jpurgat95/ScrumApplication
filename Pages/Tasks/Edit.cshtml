@@ -37,61 +37,20 @@
     <a asp-page="/Tasks/Index" class="btn btn-secondary ms-2">Anuluj</a>
 </form>
 
-<!-- Kontener na toasty -->
-<div class="position-fixed top-0 end-0 p-3" style="z-index: 1200;">
-    <div id="toastContainer"></div>
+<!-- Toasty Bootstrap -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 9999">
+    <div id="liveToast" class="toast align-items-center text-bg-@(TempData["ToastType"] ?? "info") border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body">
+                @TempData["ToastMessage"]
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-    <script>
-        // Funkcja pokazująca toast - ujednolicona i używana w całym projekcie
-        function showToast(message, type = 'success') {
-            const toastId = 'toast' + Date.now();
-            const toastHtml = `
-                <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
-                    <div class="d-flex">
-                        <div class="toast-body">${message}</div>
-                        <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Zamknij"></button>
-                    </div>
-                </div>`;
-            const container = document.getElementById('toastContainer');
-            container.insertAdjacentHTML('beforeend', toastHtml);
-            const toastElement = document.getElementById(toastId);
-
-            const closeBtn = toastElement.querySelector('button.btn-close');
-            closeBtn.addEventListener('click', () => {
-                const bsToast = bootstrap.Toast.getInstance(toastElement);
-                if (bsToast) bsToast.hide();
-            });
-
-            const bsToast = new bootstrap.Toast(toastElement, { delay: 3000 });
-            bsToast.show();
-            toastElement.addEventListener('hidden.bs.toast', () => toastElement.remove());
-        }
-
-        // Walidacja formularza z pokazaniem toastów - uniwersalna i spójna
-        document.getElementById('taskForm').addEventListener('submit', function (e) {
-            let isValid = true;
-
-            const title = this.querySelector('input[name="Title"]').value.trim();
-            const desc = this.querySelector('textarea[name="Description"]').value.trim();
-            const startDateValue = this.querySelector('input[name="StartDate"]').value;
-            const endDateValue = this.querySelector('input[name="EndDate"]').value;
-            if (!isValid) {
-                e.preventDefault();
-            }
-        });
-
-        // Pokazanie toastu z TempData (np. po zapisie)
-        window.onload = function () {
-            var toastMsg = '@TempData["ToastMessage"]';
-            var toastType = '@TempData["ToastType"]' || 'success';
-            if (toastMsg) {
-                showToast(toastMsg, toastType);
-            }
-        }
-    </script>
     <script>
         const currentTaskId = @Model.Id;
     </script>

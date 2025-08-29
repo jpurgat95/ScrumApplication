@@ -139,13 +139,13 @@ namespace ScrumApplication.Pages.Events
                     if (ev.IsDone)
                     {
                         // Jeśli event wykonany - blokuj edycję zadania
-                        await _hubContext.Clients.User(task.UserId)
+                        await _hubContext.Clients.All
                             .SendAsync("BlockTaskEdit", task.Id);
                     }
                     else
                     {
                         // Jeśli event niewykonany - odblokuj edycję zadania
-                        await _hubContext.Clients.User(task.UserId)
+                        await _hubContext.Clients.All
                             .SendAsync("UnblockTaskEdit", task.Id);
                     }
                 }
