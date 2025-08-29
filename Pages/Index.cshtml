@@ -48,3 +48,17 @@
     </div>
 </div>
 
+@if (User.Identity.IsAuthenticated && User.IsInRole("Admin"))
+{
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Panel Administratora</h5>
+                    <p class="card-text">Zarządzaj użytkownikami i konfiguracją aplikacji.</p>
+                    <a class="btn btn-primary" asp-page="/Admin/AdminPanel">Otwórz panel admina</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}

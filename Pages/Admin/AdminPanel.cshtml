@@ -1,0 +1,45 @@
+﻿@page
+@model AdminPanelModel
+
+<h2>Panel Administratora</h2>
+
+@if (TempData["SuccessMessage"] != null)
+{
+    <div class="alert alert-success">@TempData["SuccessMessage"]</div>
+}
+@if (TempData["ErrorMessage"] != null)
+{
+    <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
+}
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Nazwa użytkownika</th>
+            <th>Role</th>
+            <th>Reset hasła</th>
+            <th>Akcje</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in Model.Users)
+        {
+            <tr>
+                <td>@user.UserName</td>
+                <td>@string.Join(", ", user.Roles)</td>
+                <td>
+                    <form method="post" asp-page-handler="ChangeUserPassword" class="d-flex gap-2">
+                        <input type="hidden" name="userId" value="@user.Id" />
+                        <input type="password" name="NewPassword" class="form-control" placeholder="Nowe hasło" required minlength="6" />
+                        <button type="submit" class="btn btn-warning btn-sm">Resetuj</button>
+                    </form>
+                </td>
+                <td>
+                    <form method="post" asp-page-handler="DeleteUser" asp-route-id="@user.Id" onsubmit="return confirm('Na pewno usunąć użytkownika i wszystkie jego dane?');">
+                        <button type="submit" class="btn btn-danger btn-sm">Usuń</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

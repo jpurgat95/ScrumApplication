@@ -114,9 +114,9 @@ namespace ScrumApplication.Pages.Tasks
             };
 
             await _taskRepository.AddTaskAsync(newTask);
-
             var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync("98954494-ef5f-4a06-87e4-22ef31417c9c");
             var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
+            var currentUserId = User.Identity?.Name ?? "";
 
             var taskAdminDto = new
             {
@@ -126,7 +126,7 @@ namespace ScrumApplication.Pages.Tasks
                 StartDate = newTask.StartDate.ToString("yyyy-MM-dd HH:mm"),
                 EndDate = newTask.EndDate.ToString("yyyy-MM-dd HH:mm"),
                 newTask.IsDone,
-                UserName = User.Identity?.Name ?? "",
+                UserName = currentUserId,
                 CanEdit = true,
                 CanDelete = true
             };
@@ -145,11 +145,12 @@ namespace ScrumApplication.Pages.Tasks
 
             if (adminIds.Count > 0)
             {
-                await _hubContext.Clients.Users(adminIds).SendAsync("TaskAdded", taskAdminDto);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskAdded", taskAdminDto);
             }
-            if (userIds.Count > 0)
+            else
             {
-                await _hubContext.Clients.Users(userIds).SendAsync("TaskAdded", taskUserDto);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskAdded", taskAdminDto);
+                    await _hubContext.Clients.Users(userIds).SendAsync("TaskAdded", taskUserDto);
             }
 
             TempData["ToastMessage"] = "Dodano nowe zadanie!";

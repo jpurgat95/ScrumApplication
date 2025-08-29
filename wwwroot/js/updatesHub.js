@@ -454,6 +454,27 @@ connection.on("UnblockTaskEdit", function (taskId) {
         new bootstrap.Toast(toastEl).show();
     }
 });
+//Wylogowanie po usunięciu użytkownika
+connection.on("ForceLogoutWithToast", function () {
+    console.log("Odebrano sygnał ForceLogoutWithToast:");
+
+    function clearAuthData() {
+        console.log("Czyszczenie localStorage, sessionStorage i ciasteczek...");
+        localStorage.clear();
+        sessionStorage.clear();
+        // Usuń ciasteczko autoryzacyjne (dostosuj nazwę)
+        document.cookie = ".AspNetCore.Identity.Application=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    }
+
+    clearAuthData();
+
+    console.log("Dane auth wyczyszczone. Przekierowanie na Logout.");
+    try {
+        window.location.assign('/Logout');
+    } catch (error) {
+        console.error("Błąd podczas przekierowania:", error);
+    }
+});
 
 // Delegowanie kliknięć toggle-done dla zadań
 $(document).on('click', '.toggle-done-task', function (e) {
@@ -471,6 +492,7 @@ $(document).on('click', '.toggle-done-task', function (e) {
         }
     });
 });
+
 
 // Start połączenia
 connection.start().catch(err => console.error(err.toString()));
