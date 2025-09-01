@@ -2,11 +2,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using ScrumApplication.Models;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace ScrumApplication.Pages.Events
 {
@@ -77,6 +78,7 @@ namespace ScrumApplication.Pages.Events
             }
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var isAdmin = User.IsInRole("Admin");
 
             var newEvent = new ScrumEvent
             {
@@ -100,14 +102,17 @@ namespace ScrumApplication.Pages.Events
                 startDate = newEvent.StartDate.ToString("yyyy-MM-dd HH:mm"),
                 endDate = newEvent.EndDate.ToString("yyyy-MM-dd HH:mm"),
                 isDone = newEvent.IsDone,
-                userName,
+                UserName = userName,
                 canEdit = true,
                 canDelete = true
             };
 
-            if (!User.IsInRole("Admin"))
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+
+            if (!isAdmin)
             {
-                await _hubContext.Clients.All.SendAsync("EventAdded", eventDto);
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventAdded", eventDto);
             }
 
             TempData["ToastMessage"] = "Dodano nowe wydarzenie!";
@@ -207,19 +212,24 @@ namespace ScrumApplication.Pages.Events
                 ScrumEventDone = ev.IsDone
             }).ToList();
 
-            var adminIds = await GetAdminUserIdsAsync();
-            var userIds = await GetNonAdminUserIdsAsync(adminIds);
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
 
-            if (adminIds.Count > 0)
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+            var userToSendId = ev.UserId;
+            if(ev.UserId == "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
             {
                 await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
                 await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDtos);
             }
-
-            if (userIds.Count > 0)
+            else
             {
-                await _hubContext.Clients.Users(userIds).SendAsync("EventUpdated", eventUserDto);
-                await _hubContext.Clients.Users(userIds).SendAsync("EventUpdatesTask", taskUserDtos);
+                // Wysyłka do adminów
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDtos);
+
+                // Wysyłka do konkretnego usera
+                await _hubContext.Clients.User(userToSendId).SendAsync("EventUpdated", eventUserDto);
+                await _hubContext.Clients.User(userToSendId).SendAsync("EventUpdatesTask", taskUserDtos);
             }
 
             TempData["ToastMessage"] = "Status wydarzenia został zmieniony";
@@ -238,10 +248,17 @@ namespace ScrumApplication.Pages.Events
 
             await _eventRepository.DeleteEventAsync(ev);
 
-            // Powiadom wszystkich jeśli event usuwany jest nie przez konkretnego admina
-            if (ev.UserId != "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+            var userToSendId = ev.UserId;
+
+            if (isAdmin)
             {
-                await _hubContext.Clients.All.SendAsync("EventDeleted", ev.Id);
+                await _hubContext.Clients.User(userToSendId).SendAsync("EventDeleted", ev.Id);
+            }
+            else
+            {
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventDeleted", ev.Id);
             }
 
             TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
@@ -249,17 +266,5 @@ namespace ScrumApplication.Pages.Events
 
             return RedirectToPage();
         }
-
-        private async Task<List<string>> GetAdminUserIdsAsync()
-        {
-            const string adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // zastąp właściwym ID roli
-            return await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
-        }
-
-        private async Task<List<string>> GetNonAdminUserIdsAsync(List<string> adminIds)
-        {
-            return await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
-        }
-
     }
 }

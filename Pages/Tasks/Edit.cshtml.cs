@@ -94,9 +94,7 @@ namespace ScrumApplication.Pages.Tasks
             task.EndDate = EndDate;
 
             await _taskRepository.UpdateTaskAsync(task);
-
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync("98954494-ef5f-4a06-87e4-22ef31417c9c");
-            var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
+            //var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
 
             var taskAdminDto = new
             {
@@ -123,11 +121,21 @@ namespace ScrumApplication.Pages.Tasks
                 CanDelete = true
             };
 
-            if (adminIds.Count > 0)
-                await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+            var userToSendId = task.UserId;
 
-            if (userIds.Count > 0)
-                await _hubContext.Clients.Users(userIds).SendAsync("TaskUpdated", taskUserDto);
+            if (isAdmin)
+            {
+                await _hubContext.Clients.User(userToSendId).SendAsync("TaskUpdated", taskUserDto);
+            }
+            else
+            {
+                if (adminIds.Count() > 0)
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
+                }
+            }
 
             TempData["ToastMessage"] = "Zadanie zostało zaktualizowane";
             TempData["ToastType"] = "success";

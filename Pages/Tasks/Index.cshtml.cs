@@ -85,12 +85,13 @@ namespace ScrumApplication.Pages.Tasks
             }
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var isAdmin = User.IsInRole("Admin");
 
             // Walidacja wydarzenia
             var selectedEvent = await _eventRepository.GetEventByIdAsync(EventId, userId, isAdmin: User.IsInRole("Admin"));
             if (selectedEvent == null)
             {
-                ModelState.AddModelError(nameof(EventId), "Wybrane wydarzenie nie istnieje.");
+                ModelState.AddModelError(nameof(EventId), "Wybrane zadanie nie istnieje.");
                 await OnGetAsync();
                 return Page();
             }
@@ -118,7 +119,7 @@ namespace ScrumApplication.Pages.Tasks
             var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
             var currentUserId = User.Identity?.Name ?? "";
 
-            var taskAdminDto = new
+            var taskDto = new
             {
                 newTask.Id,
                 newTask.Title,
@@ -131,26 +132,9 @@ namespace ScrumApplication.Pages.Tasks
                 CanDelete = true
             };
 
-            var taskUserDto = new
+            if (!isAdmin)
             {
-                newTask.Id,
-                newTask.Title,
-                newTask.Description,
-                StartDate = newTask.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = newTask.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                newTask.IsDone,
-                CanEdit = true,
-                CanDelete = true
-            };
-
-            if (adminIds.Count > 0)
-            {
-                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskAdded", taskAdminDto);
-            }
-            else
-            {
-                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskAdded", taskAdminDto);
-                    await _hubContext.Clients.Users(userIds).SendAsync("TaskAdded", taskUserDto);
+                await _hubContext.Clients.Users(adminIds).SendAsync("TaskAdded", taskDto);                
             }
 
             TempData["ToastMessage"] = "Dodano nowe zadanie!";
@@ -171,9 +155,6 @@ namespace ScrumApplication.Pages.Tasks
             task.IsDone = !task.IsDone;
             await _taskRepository.UpdateTaskAsync(task);
 
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync("98954494-ef5f-4a06-87e4-22ef31417c9c");
-            var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
-
             var taskAdminDto = new
             {
                 task.Id,
@@ -182,7 +163,7 @@ namespace ScrumApplication.Pages.Tasks
                 StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
                 EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
                 task.IsDone,
-                UserName = User.Identity?.Name ?? "",
+                UserName = task.User?.UserName ?? "",
                 CanEdit = true,
                 CanDelete = true
             };
@@ -198,14 +179,18 @@ namespace ScrumApplication.Pages.Tasks
                 CanEdit = true,
                 CanDelete = true
             };
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
 
-            if (adminIds.Count > 0)
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+            var userToSendId = task.UserId;
+            if (task.UserId == "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
             {
                 await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
             }
-            if (userIds.Count > 0)
+            else
             {
-                await _hubContext.Clients.Users(userIds).SendAsync("TaskUpdated", taskUserDto);
+                await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
+                await _hubContext.Clients.User(userToSendId).SendAsync("TaskUpdated", taskUserDto);
             }
 
             TempData["ToastMessage"] = "Status zadania został zmieniony";
@@ -218,16 +203,24 @@ namespace ScrumApplication.Pages.Tasks
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var isAdmin = User.IsInRole("Admin");
+           
 
             var task = await _taskRepository.GetTaskByIdAsync(id, userId, isAdmin);
             if (task == null)
                 return NotFound();
 
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
             await _taskRepository.DeleteTaskAsync(task);
+            var userToSendId = task.UserId;
 
-            if (task.UserId != "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
+            if (isAdmin)
             {
-                await _hubContext.Clients.All.SendAsync("TaskDeleted", task.Id);
+                await _hubContext.Clients.User(userToSendId).SendAsync("TaskDeleted", task.Id);
+            }
+            else
+            {
+                await _hubContext.Clients.Users(adminIds).SendAsync("TaskDeleted", task.Id);
             }
 
             TempData["ToastMessage"] = "Zadanie zostało usunięte";

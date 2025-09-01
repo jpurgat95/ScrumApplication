@@ -3,10 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.SignalR;
 using ScrumApplication.Models;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace ScrumApplication.Pages.Events
 {
@@ -61,7 +62,6 @@ namespace ScrumApplication.Pages.Events
 
             return Page();
         }
-
         public async Task<IActionResult> OnPostAsync()
         {
             if (!ModelState.IsValid)
@@ -116,16 +116,22 @@ namespace ScrumApplication.Pages.Events
                 CanDelete = true
             };
 
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync("98954494-ef5f-4a06-87e4-22ef31417c9c"); // id roli admina
-            if (adminIds.Count > 0)
-            {
-                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
-            }
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+            var userToSendId = ev.UserId;
 
-            var nonAdminIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
-            if (nonAdminIds.Count > 0)
+            if (isAdmin)
             {
-                await _hubContext.Clients.Users(nonAdminIds).SendAsync("EventUpdated", eventUserDto);
+                // Admin wysyła powiadomienie do konkretnego usera (np. eventUserDto)
+                await _hubContext.Clients.User(userToSendId).SendAsync("EventUpdated", eventUserDto);
+            }
+            else
+            {
+                // Zwykły user wysyła powiadomienie do adminów
+                if (adminIds.Count > 0)
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
+                }
             }
 
             TempData["ToastMessage"] = "Wydarzenie zostało zaktualizowane";
