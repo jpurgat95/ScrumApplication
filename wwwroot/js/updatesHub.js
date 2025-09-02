@@ -223,7 +223,7 @@ connection.on("TaskDeleted", taskId => {
     // Odświeżenie FullCalendar, jeśli jest zainicjalizowany
     if (window.calendar) {
         calendar.refetchEvents();
-        console.log(`🔄 FullCalendar odświeżony po aktualizacji event #${ev.id}`);
+        console.log(`🔄 FullCalendar odświeżony po aktualizacji zadania #${task.id}`);
     }
 });
 // Aktualizacja zadania
@@ -456,26 +456,86 @@ connection.on("UnblockTaskEdit", function (taskId) {
 });
 //Wylogowanie po usunięciu użytkownika
 connection.on("ForceLogoutWithToast", function () {
-    console.log("Odebrano sygnał ForceLogoutWithToast:");
+    console.log("Otrzymano sygnał wylogowania. Wyświetlam toast i przekierowuję na /Logout");
 
-    function clearAuthData() {
-        console.log("Czyszczenie localStorage, sessionStorage i ciasteczek...");
-        localStorage.clear();
-        sessionStorage.clear();
-        // Usuń ciasteczko autoryzacyjne (dostosuj nazwę)
-        document.cookie = ".AspNetCore.Identity.Application=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    }
+    const toastEl = document.getElementById('liveToast');
+    const toastBody = toastEl.querySelector('.toast-body');
+    toastBody.textContent = "Użytkownik został usunięty";
 
-    clearAuthData();
+    toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
+    toastEl.classList.add('bg-info', 'text-white');
 
-    console.log("Dane auth wyczyszczone. Przekierowanie na Logout.");
-    try {
-        window.location.assign('/Logout');
-    } catch (error) {
-        console.error("Błąd podczas przekierowania:", error);
-    }
+    const bsToast = new bootstrap.Toast(toastEl);
+    bsToast.show();
+
+    // Po wyświetleniu toastu, po 2 sekundach przekieruj:
+    setTimeout(() => {
+        window.location.href = '/Logout';
+    }, 2000);
 });
+// Wymuszenie resetu hasła
+connection.on("ForcePasswordReset", (resetUrl) => {
+    var toastEl = document.getElementById('liveToast');
+    var toast = new bootstrap.Toast(toastEl);
+    toast.show();
 
+    // Po pokazaniu toastu, po 4s, przekieruj:
+    setTimeout(() => {
+        window.location.href = resetUrl;
+    }, 3000);
+});
+// Powiadomienie o nowej rejestracji użytkownika (tylko dla adminów)
+connection.on("UserRegistered", (userName, userId) => {
+    const toastEl = document.getElementById('liveToast');
+    const toastBody = toastEl.querySelector('.toast-body');
+
+    toastBody.textContent = `Nowy użytkownik: ${userName} został zarejestrowany.`;
+    toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
+    toastEl.classList.add('bg-info', 'text-white');
+    const bsToast = new bootstrap.Toast(toastEl);
+    bsToast.show();
+
+    const tbody = document.querySelector("table tbody");
+    if (!tbody) {
+        console.warn("Nie znaleziono elementu tbody w tabeli użytkowników!");
+        return;
+    }
+
+    // Token CSRF
+    const csrfTokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
+    const csrfToken = csrfTokenInput ? csrfTokenInput.value : null;
+    if (!csrfToken) {
+        console.warn("Nie znaleziono tokena __RequestVerificationToken na stronie!");
+    } else {
+        console.log("CSRF token znaleziony:", csrfToken);
+    }
+
+    // Utwórz nowy wiersz
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+        <td>${userName}</td>
+        <td>Użytkownik</td>
+        <td>
+            <form method="post" class="d-flex gap-2" action="/Admin/AdminPanel?handler=ForcePasswordReset">
+                <input type="hidden" name="userId" value="${userId}" />
+                <button type="submit" class="btn btn-warning btn-sm">Wymuś reset</button>
+                <input name="__RequestVerificationToken" type="hidden" value="${csrfToken || ''}" />
+            </form>
+        </td>
+        <td>
+            <form method="post" id="deleteForm" style="display:none;" action="/Admin/AdminPanel?handler=DeleteUser">
+                <input name="__RequestVerificationToken" type="hidden" value="${csrfToken || ''}" />
+            </form>
+            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-user-id="${userId}">
+                Usuń
+            </button>
+        </td>
+    `;
+
+    // Wstaw tr na początek tbody
+    tbody.prepend(tr);
+    console.log('Nowy użytkownik został dodany do tabeli:', userName);
+});
 // Delegowanie kliknięć toggle-done dla zadań
 $(document).on('click', '.toggle-done-task', function (e) {
     e.preventDefault();
@@ -492,7 +552,5 @@ $(document).on('click', '.toggle-done-task', function (e) {
         }
     });
 });
-
-
 // Start połączenia
 connection.start().catch(err => console.error(err.toString()));

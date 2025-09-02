@@ -11,7 +11,6 @@ public class AdminPanelModel : PageModel
     private readonly IEventRepository _eventRepo;
     private readonly ITaskRepository _taskRepo;
     private readonly IHubContext<UpdatesHub> _hubContext;
-
     public List<UserDto> Users { get; set; }
 
     public AdminPanelModel(UserManager<IdentityUser> userManager, IEventRepository eventRepo, 
@@ -30,9 +29,17 @@ public class AdminPanelModel : PageModel
     public async Task OnGetAsync()
     {
         var allUsers = _userManager.Users.ToList();
+        Users = new List<UserDto>();
+
         foreach (var user in allUsers)
         {
             var roles = await _userManager.GetRolesAsync(user);
+            if (roles.Contains("Admin"))
+            {
+                // Pomijamy użytkowników z rolą Admin
+                continue;
+            }
+
             Users.Add(new UserDto
             {
                 Id = user.Id,
@@ -41,14 +48,12 @@ public class AdminPanelModel : PageModel
             });
         }
     }
-
-    // Akcja zmiany hasła
-    public async Task<IActionResult> OnPostChangeUserPasswordAsync(string userId)
+    public async Task<IActionResult> OnPostForcePasswordResetAsync(string userId)
     {
-        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(NewPassword))
+        if (string.IsNullOrEmpty(userId))
         {
-            ModelState.AddModelError("", "Id użytkownika i nowe hasło są wymagane.");
-            await OnGetAsync(); // do ponownego załadowania listy użytkowników
+            ModelState.AddModelError("", "Id użytkownika jest wymagane.");
+            await OnGetAsync();
             return Page();
         }
 
@@ -60,55 +65,64 @@ public class AdminPanelModel : PageModel
             return Page();
         }
 
+        // Generuj token resetu hasła
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-        var result = await _userManager.ResetPasswordAsync(user, token, NewPassword);
 
-        if (!result.Succeeded)
-        {
-            foreach (var error in result.Errors)
-                ModelState.AddModelError("", error.Description);
-            await OnGetAsync();
-            return Page();
-        }
+        // Przekonwertuj token na URL friendly (jesli chcesz przesłać w URL)
+        var encodedToken = System.Net.WebUtility.UrlEncode(token);
 
-        TempData["SuccessMessage"] = $"Hasło użytkownika {user.UserName} zostało zmienione.";
+        // Stwórz link do resetu hasła (dostosuj ścieżkę do swojej aplikacji)
+        var resetUrl = Url.Page("/ResetPassword", null, new { userId = user.Id, token = encodedToken }, Request.Scheme);
+
+
+        // Wyślij powiadomienie do użytkownika przez SignalR z linkiem do resetu
+        await _hubContext.Clients.User(user.Id).SendAsync("ForcePasswordReset", resetUrl);
+
+        TempData["SuccessMessage"] = $"Wymuszono reset hasła dla użytkownika {user.UserName}.";
         return RedirectToPage();
     }
-
-    // Akcja usuwania użytkownika wraz z eventami i zadaniami
     public async Task<IActionResult> OnPostDeleteUserAsync(string id)
     {
         var user = await _userManager.FindByIdAsync(id);
-        if (user != null)
-        {
-            var events = await _eventRepo.GetEventsAsync(user.Id, isAdmin: true);
-
-            // Odfiltrowanie eventów, których właścicielem jest aktualny user
-            var userEvents = events.Where(ev => ev.UserId == user.Id).ToList();
-
-            foreach (var ev in userEvents)
-                await _eventRepo.DeleteEventAsync(ev);
-
-            var tasks = await _taskRepo.GetTasksAsync(user.Id, isAdmin: true);
-
-            // Podobnie dla zadań, jeśli metoda GetTasksAsync zwraca więcej niż usera
-            var userTasks = tasks.Where(task => task.UserId == user.Id).ToList();
-
-            foreach (var task in userTasks)
-                await _taskRepo.DeleteTaskAsync(task);
-
-            await _userManager.DeleteAsync(user);
-            TempData["SuccessMessage"] = $"Użytkownik {user.UserName} wraz z powiązanymi danymi został usunięty.";
-            // Powiadomienie użytkownika o usunięciu konta
-            await _hubContext.Clients.User(user.Id).SendAsync("ForceLogoutWithToast");
-        }
-        else
+        if (user == null)
         {
             TempData["ErrorMessage"] = "Użytkownik nie istnieje.";
+            return RedirectToPage();
         }
 
+        // Pobierz eventy
+        var events = await _eventRepo.GetEventsAsync(user.Id, isAdmin: true);
+        var userEvents = events.Where(ev => ev.UserId == user.Id);
+        // Usuń eventy jeden po drugim
+        foreach (var ev in userEvents)
+        {
+            await _eventRepo.DeleteEventAsync(ev);
+        }
+
+        // Pobierz zadania
+        var tasks = await _taskRepo.GetTasksAsync(user.Id, isAdmin: true);
+        var userTasks = tasks.Where(t => t.UserId == user.Id);
+        // Usuń zadania jeden po drugim
+        foreach (var task in userTasks)
+        {
+            await _taskRepo.DeleteTaskAsync(task);
+        }
+
+        // Usuń użytkownika
+        var deleteResult = await _userManager.DeleteAsync(user);
+        if (!deleteResult.Succeeded)
+        {
+            TempData["ErrorMessage"] = "Wystąpił błąd podczas usuwania użytkownika.";
+            return RedirectToPage();
+        }
+
+        TempData["SuccessMessage"] = $"Użytkownik {user.UserName} wraz z powiązanymi danymi został usunięty.";
+
+        // Wyloguj użytkownika
+        await _hubContext.Clients.User(user.Id).SendAsync("ForceLogoutWithToast");
         return RedirectToPage();
     }
+
 
     public class UserDto
     {

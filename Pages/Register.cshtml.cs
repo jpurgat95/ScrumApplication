@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.SignalR;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
 
@@ -8,11 +9,16 @@ public class RegisterModel : PageModel
 {
     private readonly UserManager<IdentityUser> _userManager;
     private readonly SignInManager<IdentityUser> _signInManager;
+    private readonly IHubContext<UpdatesHub> _hubContext;
+    private readonly IUserRoleRepository _userRoleRepository;
 
-    public RegisterModel(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager)
+    public RegisterModel(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager,
+                         IHubContext<UpdatesHub> hubContext, IUserRoleRepository userRoleRepository)
     {
         _userManager = userManager;
         _signInManager = signInManager;
+        _hubContext = hubContext;
+        _userRoleRepository = userRoleRepository;
     }
 
     [BindProperty]
@@ -53,6 +59,9 @@ public class RegisterModel : PageModel
 
         if (result.Succeeded)
         {
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+            await _hubContext.Clients.Users(adminIds).SendAsync("UserRegistered", user.UserName, user.Id);
             await _signInManager.SignInAsync(user, isPersistent: false);
             return RedirectToPage("/Index");
         }

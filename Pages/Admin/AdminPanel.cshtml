@@ -1,8 +1,6 @@
 ﻿@page
 @model AdminPanelModel
-
 <h2>Panel Administratora</h2>
-
 @if (TempData["SuccessMessage"] != null)
 {
     <div class="alert alert-success">@TempData["SuccessMessage"]</div>
@@ -11,14 +9,13 @@
 {
     <div class="alert alert-danger">@TempData["ErrorMessage"]</div>
 }
-
 <table class="table">
     <thead>
         <tr>
             <th>Nazwa użytkownika</th>
-            <th>Role</th>
-            <th>Reset hasła</th>
-            <th>Akcje</th>
+            <th>Rola</th>
+            <th>Wymuś reset hasła</th>
+            <th>Usuwanie</th>
         </tr>
     </thead>
     <tbody>
@@ -26,20 +23,77 @@
         {
             <tr>
                 <td>@user.UserName</td>
-                <td>@string.Join(", ", user.Roles)</td>
+                <td>@(user.Roles?.Any() == true ? string.Join(", ", user.Roles) : "Użytkownik")</td>
                 <td>
-                    <form method="post" asp-page-handler="ChangeUserPassword" class="d-flex gap-2">
+                    <form method="post" asp-page-handler="ForcePasswordReset" class="d-flex gap-2">
                         <input type="hidden" name="userId" value="@user.Id" />
-                        <input type="password" name="NewPassword" class="form-control" placeholder="Nowe hasło" required minlength="6" />
-                        <button type="submit" class="btn btn-warning btn-sm">Resetuj</button>
+                        <button type="submit" class="btn btn-warning btn-sm">Wymuś reset</button>
                     </form>
                 </td>
                 <td>
-                    <form method="post" asp-page-handler="DeleteUser" asp-route-id="@user.Id" onsubmit="return confirm('Na pewno usunąć użytkownika i wszystkie jego dane?');">
-                        <button type="submit" class="btn btn-danger btn-sm">Usuń</button>
-                    </form>
+                    <form method="post" asp-page-handler="DeleteUser" id="deleteForm" style="display:none;"></form>
+                    <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#confirmDeleteModal" data-user-id="@user.Id">
+                        Usuń
+                    </button>
                 </td>
             </tr>
         }
     </tbody>
 </table>
+<!--Toast-->
+<div aria-live="polite" aria-atomic="true" class="position-relative">
+    <div id="successToast" class="toast bg-success text-white position-fixed bottom-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="3000">
+        <div class="toast-body">
+            @TempData["SuccessMessage"]
+        </div>
+    </div>
+</div>
+<!--Modal usuwania-->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Potwierdzenie usunięcia</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Zamknij"></button>
+            </div>
+            <div class="modal-body">
+                Czy na pewno chcesz usunąć tego użytkownika? Operacja jest nieodwracalna.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteButton">Usuń</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Scripts {
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          var toastEl = document.getElementById('successToast');
+          if (toastEl && toastEl.querySelector('.toast-body').textContent.trim().length > 0) {
+            var toast = new bootstrap.Toast(toastEl);
+            toast.show();
+          }
+        });
+    </script>
+    <!--Skrypt do modala usuwania-->
+    <script>
+        var deleteForm = document.getElementById('deleteForm');
+        var confirmDeleteModal = document.getElementById('confirmDeleteModal');
+        var confirmDeleteButton = document.getElementById('confirmDeleteButton');
+        var userIdToDelete = null;
+
+        confirmDeleteModal.addEventListener('show.bs.modal', function (event) {
+          var button = event.relatedTarget;
+          userIdToDelete = button.getAttribute('data-user-id');
+          // Ustaw action formularza z parametrem userId
+          deleteForm.action = '?handler=DeleteUser&id=' + encodeURIComponent(userIdToDelete);
+        });
+
+        confirmDeleteButton.addEventListener('click', function () {
+          deleteForm.submit();
+        });
+    </script>
+}
