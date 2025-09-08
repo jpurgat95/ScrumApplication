@@ -18,42 +18,56 @@ public class EventsModel : PageModel
 
     public IActionResult OnGet()
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        //Jeśli użytkownik jest administratorem, pobierz wszystkie wydarzenia
-        var tasksQuery = User.IsInRole("Admin") 
-            ? _context.Events 
-            : _context.Events.Where(e => e.UserId == userId);
+        try
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            //Jeśli użytkownik jest administratorem, pobierz wszystkie wydarzenia
+            var tasksQuery = User.IsInRole("Admin")
+                ? _context.Events
+                : _context.Events.Where(e => e.UserId == userId);
 
-        var events = tasksQuery
-            .Select(e => new
-            {
-                id = e.Id,
-                title = e.Title,
-                description = e.Description,
-                start = e.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
-                end = e.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
-                isDone = e.IsDone,
-                userId = e.UserId,
-                userName = User.IsInRole("Admin") ? e.User.UserName : null
-            })
-            .ToList();
+            var events = tasksQuery
+                .Select(e => new
+                {
+                    id = e.Id,
+                    title = e.Title,
+                    description = e.Description,
+                    start = e.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    end = e.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    isDone = e.IsDone,
+                    userId = e.UserId,
+                    userName = User.IsInRole("Admin") ? e.User.UserName : null
+                })
+                .ToList();
 
-        return new JsonResult(events);
+            return new JsonResult(events);
+        }
+        catch (Exception ex)
+        {
+            return new JsonResult(new { success = false, error = ex.Message });
+        }
     }
     public IActionResult OnPostToggleDone(int id)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        // admin może zmieniać każde wydarzenie, user tylko swoje
-        var ev = User.IsInRole("Admin")
-            ? _context.Events.FirstOrDefault(e => e.Id == id)
-            : _context.Events.FirstOrDefault(e => e.Id == id && e.UserId == userId);
-
-        if (ev != null)
+        try
         {
-            ev.IsDone = !ev.IsDone;
-            _context.SaveChanges();
-            return new JsonResult(new { success = true, isDone = ev.IsDone });
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            // admin może zmieniać każde wydarzenie, user tylko swoje
+            var ev = User.IsInRole("Admin")
+                ? _context.Events.FirstOrDefault(e => e.Id == id)
+                : _context.Events.FirstOrDefault(e => e.Id == id && e.UserId == userId);
+
+            if (ev != null)
+            {
+                ev.IsDone = !ev.IsDone;
+                _context.SaveChanges();
+                return new JsonResult(new { success = true, isDone = ev.IsDone });
+            }
+            return new JsonResult(new { success = false });
         }
-        return new JsonResult(new { success = false });
+        catch (Exception ex)
+        {
+            return new JsonResult(new { success = false, error = ex.Message });
+        }
     }
 }

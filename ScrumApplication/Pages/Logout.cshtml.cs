@@ -12,12 +12,30 @@ public class LogoutModel : PageModel
     }
     public async Task<IActionResult> OnGetAsync()
     {
-        await _signInManager.SignOutAsync();
-        return RedirectToPage("/Login");
+        try
+        {
+            await _signInManager.SignOutAsync();
+            return RedirectToPage("/Login");
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = $"Wystąpił błąd podczas wylogowania: {ex.Message} Spróbuj ponownie.";
+            return RedirectToPage("/Login");
+        }
     }
+
     public async Task<IActionResult> OnPostAsync()
     {
-        await _signInManager.SignOutAsync();
-        return RedirectToPage("/Login");
+        try
+        {
+            await _signInManager.SignOutAsync();
+            return RedirectToPage("/Login");
+        }
+        catch (Exception ex)
+        {
+            TempData["ErrorMessage"] = $"Wystąpił błąd podczas wylogowania: {ex.Message} Spróbuj ponownie.";
+            return RedirectToPage("/Login");
+        }
     }
+
 }

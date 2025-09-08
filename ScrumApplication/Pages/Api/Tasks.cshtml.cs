@@ -16,43 +16,56 @@ public class TasksModel : PageModel
     }
     public IActionResult OnGet()
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        //Jeśli użytkownik jest administratorem, pobierz wszystkie zadania
-        var tasksQuery = User.IsInRole("Admin") 
-            ? _context.Tasks 
-            : _context.Tasks.Where(t => t.UserId == userId);
+        try
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            //Jeśli użytkownik jest administratorem, pobierz wszystkie zadania
+            var tasksQuery = User.IsInRole("Admin")
+                ? _context.Tasks
+                : _context.Tasks.Where(t => t.UserId == userId);
 
-        var tasks = tasksQuery
-            .Select(t => new
-            {
-                id = t.Id,
-                title = t.Title,
-                description = t.Description,
-                start = t.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
-                end = t.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
-                isDone = t.IsDone,
-                userId = t.UserId,
-                userName = User.IsInRole("Admin") ? t.User.UserName : null
-            })
-            .ToList();
+            var tasks = tasksQuery
+                .Select(t => new
+                {
+                    id = t.Id,
+                    title = t.Title,
+                    description = t.Description,
+                    start = t.StartDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    end = t.EndDate.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    isDone = t.IsDone,
+                    userId = t.UserId,
+                    userName = User.IsInRole("Admin") ? t.User.UserName : null
+                })
+                .ToList();
 
-        return new JsonResult(tasks);
+            return new JsonResult(tasks);
+        }
+        catch (Exception ex)
+        {
+            return new JsonResult(new { success = false, error = ex.Message });
+        }
     }
     public IActionResult OnPostToggleDone(int id)
     {
-        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-        // admin może zmieniać każde zadanie, user tylko swoje
-        var task = User.IsInRole("Admin")
-            ? _context.Tasks.FirstOrDefault(t => t.Id == id)
-            : _context.Tasks.FirstOrDefault(t => t.Id == id && t.UserId == userId);
-
-        if (task != null)
+        try
         {
-            task.IsDone = !task.IsDone;
-            _context.SaveChanges();
-            return new JsonResult(new { success = true, isDone = task.IsDone });
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            // admin może zmieniać każde zadanie, user tylko swoje
+            var task = User.IsInRole("Admin")
+                ? _context.Tasks.FirstOrDefault(t => t.Id == id)
+                : _context.Tasks.FirstOrDefault(t => t.Id == id && t.UserId == userId);
+            if (task != null)
+            {
+                task.IsDone = !task.IsDone;
+                _context.SaveChanges();
+                return new JsonResult(new { success = true, isDone = task.IsDone });
+            }
+            return new JsonResult(new { success = false });
         }
-        return new JsonResult(new { success = false });
+        catch (Exception ex)
+        {
+            return new JsonResult(new { success = false, error = ex.Message });
+        }
     }
+
 }

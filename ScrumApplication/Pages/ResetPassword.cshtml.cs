@@ -59,62 +59,65 @@ public class ResetPasswordModel : PageModel
     public async Task<IActionResult> OnPostAsync()
     {
         _logger.LogInformation("Rozpoczęto reset hasła dla użytkownika {UserId}.", Input.UserId);
-
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("Niepoprawny model podczas resetu hasła. UserId: {UserId}", Input.UserId);
             return Page();
         }
-
-        var user = await _userManager.FindByIdAsync(Input.UserId);
-        if (user == null)
+        try
         {
-            _logger.LogWarning("Nie znaleziono użytkownika o Id {UserId}.", Input.UserId);
-            ModelState.AddModelError("", "Nie znaleziono użytkownika.");
+            var user = await _userManager.FindByIdAsync(Input.UserId);
+            if (user == null)
+            {
+                _logger.LogWarning("Nie znaleziono użytkownika o Id {UserId}.", Input.UserId);
+                ModelState.AddModelError("", "Nie znaleziono użytkownika.");
+                return Page();
+            }
+            var result = await _userManager.ResetPasswordAsync(user, Input.Token, Input.NewPassword);
+            if (result.Succeeded)
+            {
+                _logger.LogInformation("Reset hasła zakończony sukcesem dla użytkownika {UserId}.", Input.UserId);
+                TempData["SuccessMessage"] = "Hasło zostało zmienione.";
+                await _signInManager.SignOutAsync();
+                return RedirectToPage("/Login");
+            }
+            foreach (var error in result.Errors)
+            {
+                _logger.LogWarning("Błąd resetu hasła dla użytkownika {UserId}: {ErrorCode} - {ErrorDescription}", Input.UserId, error.Code, error.Description);
+                var key = string.Empty;
+                var msg = error.Description;
+                switch (error.Code)
+                {
+                    case "PasswordTooShort":
+                        key = "Input.NewPassword";
+                        msg = $"Hasło jest za krótkie. Minimalna długość: {_userManager.Options.Password.RequiredLength}.";
+                        break;
+                    case "PasswordRequiresDigit":
+                        key = "Input.NewPassword";
+                        msg = "Hasło musi zawierać co najmniej jedną cyfrę.";
+                        break;
+                    case "PasswordRequiresUpper":
+                        key = "Input.NewPassword";
+                        msg = "Hasło musi zawierać co najmniej jedną wielką literę.";
+                        break;
+                    case "PasswordRequiresLower":
+                        key = "Input.NewPassword";
+                        msg = "Hasło musi zawierać co najmniej jedną małą literę.";
+                        break;
+                    case "PasswordRequiresNonAlphanumeric":
+                        key = "Input.NewPassword";
+                        msg = "Hasło musi zawierać co najmniej jeden znak specjalny.";
+                        break;
+                }
+                ModelState.AddModelError(key, msg);
+            }
             return Page();
         }
-
-        var result = await _userManager.ResetPasswordAsync(user, Input.Token, Input.NewPassword);
-
-        if (result.Succeeded)
+        catch (Exception ex)
         {
-            _logger.LogInformation("Reset hasła zakończony sukcesem dla użytkownika {UserId}.", Input.UserId);
-            TempData["SuccessMessage"] = "Hasło zostało zmienione.";
-            await _signInManager.SignOutAsync();
-            return RedirectToPage("/Login");
+            _logger.LogError(ex, "Wystąpił błąd podczas resetu hasła dla użytkownika {UserId}.", Input.UserId);
+            ModelState.AddModelError("", "Wystąpił nieoczekiwany błąd podczas resetu hasła. Spróbuj ponownie.");
+            return Page();
         }
-
-        foreach (var error in result.Errors)
-        {
-            _logger.LogWarning("Błąd resetu hasła dla użytkownika {UserId}: {ErrorCode} - {ErrorDescription}", Input.UserId, error.Code, error.Description);
-            var key = string.Empty;
-            var msg = error.Description;
-            switch (error.Code)
-            {
-                case "PasswordTooShort":
-                    key = "Input.NewPassword";
-                    msg = $"Hasło jest za krótkie. Minimalna długość: {_userManager.Options.Password.RequiredLength}.";
-                    break;
-                case "PasswordRequiresDigit":
-                    key = "Input.NewPassword";
-                    msg = "Hasło musi zawierać co najmniej jedną cyfrę.";
-                    break;
-                case "PasswordRequiresUpper":
-                    key = "Input.NewPassword";
-                    msg = "Hasło musi zawierać co najmniej jedną wielką literę.";
-                    break;
-                case "PasswordRequiresLower":
-                    key = "Input.NewPassword";
-                    msg = "Hasło musi zawierać co najmniej jedną małą literę.";
-                    break;
-                case "PasswordRequiresNonAlphanumeric":
-                    key = "Input.NewPassword";
-                    msg = "Hasło musi zawierać co najmniej jeden znak specjalny.";
-                    break;
-            }
-            ModelState.AddModelError(key, msg);
-        }
-
-        return Page();
     }
 }

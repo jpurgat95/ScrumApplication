@@ -11,7 +11,7 @@ using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 namespace ScrumApplicationTests
 {
-    public class TasksModelTests
+    public class TasksApiTests
     {
         private ScrumDbContext GetInMemoryContext()
         {

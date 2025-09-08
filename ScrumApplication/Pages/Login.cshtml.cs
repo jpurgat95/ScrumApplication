@@ -34,32 +34,39 @@ public class LoginModel : PageModel
     public async Task<IActionResult> OnPostAsync(string returnUrl = null)
     {
         returnUrl ??= Url.Content("~/");
-
         if (ModelState.IsValid)
         {
-            var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
-            if (result.Succeeded)
+            try
             {
-                return LocalRedirect(returnUrl);
+                var result = await _signInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+                if (result.Succeeded)
+                {
+                    return LocalRedirect(returnUrl);
+                }
+                if (result.IsLockedOut)
+                {
+                    ModelState.AddModelError(string.Empty, "Twoje konto zostało zablokowane. Spróbuj później.");
+                    return Page();
+                }
+                else if (result.IsNotAllowed)
+                {
+                    ModelState.AddModelError(string.Empty, "Logowanie jest niedozwolone. Potwierdź swój adres email.");
+                    return Page();
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty, "Nieprawidłowy login lub hasło.");
+                    return Page();
+                }
             }
-            if (result.IsLockedOut)
+            catch (Exception ex)
             {
-                ModelState.AddModelError(string.Empty, "Twoje konto zostało zablokowane. Spróbuj później.");
-                return Page();
-            }
-            else if (result.IsNotAllowed)
-            {
-                ModelState.AddModelError(string.Empty, "Logowanie jest niedozwolone. Potwierdź swój adres email.");
-                return Page();
-            }
-            else
-            {
-                ModelState.AddModelError(string.Empty, "Nieprawidłowy login lub hasło.");
+                ModelState.AddModelError(string.Empty, $"Wystąpił błąd podczas próby logowania: {ex.Message}");
                 return Page();
             }
         }
-
         return Page();
     }
+
 }
 

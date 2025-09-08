@@ -46,225 +46,257 @@ namespace ScrumApplication.Pages.Events
         public List<ScrumEvent> Events { get; set; } = new();
 
         public List<TaskItem> Tasks { get; set; } = new();
+        public string ErrorMessage { get; set; }
 
         public async Task OnGetAsync()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
 
-            Events = await _eventRepository.GetEventsAsync(userId, isAdmin);
-            Tasks = await _taskRepository.GetTasksAsync(userId, isAdmin);
+                Events = await _eventRepository.GetEventsAsync(userId, isAdmin);
+                Tasks = await _taskRepository.GetTasksAsync(userId, isAdmin);
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
         }
 
         public async Task<IActionResult> OnPostAsync()
         {
-            if (!ModelState.IsValid)
+            try
             {
-                var firstError = ModelState.Values.SelectMany(v => v.Errors).FirstOrDefault()?.ErrorMessage;
-                if (!string.IsNullOrEmpty(firstError))
+                if (!ModelState.IsValid)
                 {
-                    TempData["ToastMessage"] = firstError;
-                    TempData["ToastType"] = "danger";
+                    var firstError = ModelState.Values.SelectMany(v => v.Errors).FirstOrDefault()?.ErrorMessage;
+                    if (!string.IsNullOrEmpty(firstError))
+                    {
+                        TempData["ToastMessage"] = firstError;
+                        TempData["ToastType"] = "danger";
+                    }
+                    await OnGetAsync();
+                    return Page();
                 }
-                await OnGetAsync();
+
+                if (EndDate <= StartDate)
+                {
+                    ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
+                    await OnGetAsync();
+                    return Page();
+                }
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
+
+                var newEvent = new ScrumEvent
+                {
+                    Title = Title!,
+                    Description = Description ?? "",
+                    StartDate = StartDate,
+                    EndDate = EndDate,
+                    IsDone = false,
+                    UserId = userId
+                };
+
+                await _eventRepository.AddEventAsync(newEvent);
+
+                var userName = User.Identity?.Name ?? "";
+
+                var eventDto = new
+                {
+                    id = newEvent.Id,
+                    title = newEvent.Title,
+                    description = newEvent.Description,
+                    startDate = newEvent.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    endDate = newEvent.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    isDone = newEvent.IsDone,
+                    UserName = userName,
+                    canEdit = true,
+                    canDelete = true
+                };
+
+                var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+                var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+
+                if (!isAdmin)
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("EventAdded", eventDto);
+                }
+
+                TempData["ToastMessage"] = "Dodano nowe wydarzenie!";
+                TempData["ToastType"] = "success";
+
+                return RedirectToPage();
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"Wystąpił błąd podczas próby dodania wydarzenia: {ex.Message}");
                 return Page();
             }
-
-            if (EndDate <= StartDate)
-            {
-                ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
-                await OnGetAsync();
-                return Page();
-            }
-
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
-
-            var newEvent = new ScrumEvent
-            {
-                Title = Title!,
-                Description = Description ?? "",
-                StartDate = StartDate,
-                EndDate = EndDate,
-                IsDone = false,
-                UserId = userId
-            };
-
-            await _eventRepository.AddEventAsync(newEvent);
-
-            var userName = User.Identity?.Name ?? "";
-
-            var eventDto = new
-            {
-                id = newEvent.Id,
-                title = newEvent.Title,
-                description = newEvent.Description,
-                startDate = newEvent.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                endDate = newEvent.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                isDone = newEvent.IsDone,
-                UserName = userName,
-                canEdit = true,
-                canDelete = true
-            };
-
-            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
-
-            if (!isAdmin)
-            {
-                await _hubContext.Clients.Users(adminIds).SendAsync("EventAdded", eventDto);
-            }
-
-            TempData["ToastMessage"] = "Dodano nowe wydarzenie!";
-            TempData["ToastType"] = "success";
-
-            return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostToggleDoneAsync(int id)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
-
-            var ev = await _eventRepository.GetEventByIdAsync(id, userId, isAdmin);
-            if (ev == null)
-                return NotFound();
-
-            ev.IsDone = !ev.IsDone;
-            await _eventRepository.UpdateEventAsync(ev);
-
-            // Pobierz zadania powiązane z wydarzeniem
-            var tasks = await _taskRepository.GetTasksByEventIdAsync(ev.Id);
-
-            // Wysyłamy BlockTaskEdit do użytkowników, którzy edytują powiązane zadania
-            foreach (var task in tasks)
+            try
             {
-                if (!string.IsNullOrEmpty(task.UserId))
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
+
+                var ev = await _eventRepository.GetEventByIdAsync(id, userId, isAdmin);
+                if (ev == null)
+                    return NotFound();
+
+                ev.IsDone = !ev.IsDone;
+                await _eventRepository.UpdateEventAsync(ev);
+
+                // Pobierz zadania powiązane z wydarzeniem
+                var tasks = await _taskRepository.GetTasksByEventIdAsync(ev.Id);
+
+                // Wysyłamy BlockTaskEdit do użytkowników, którzy edytują powiązane zadania
+                foreach (var task in tasks)
                 {
-                    if (ev.IsDone)
+                    if (!string.IsNullOrEmpty(task.UserId))
                     {
-                        // Jeśli event wykonany - blokuj edycję zadania
-                        await _hubContext.Clients.All
-                            .SendAsync("BlockTaskEdit", task.Id);
-                    }
-                    else
-                    {
-                        // Jeśli event niewykonany - odblokuj edycję zadania
-                        await _hubContext.Clients.All
-                            .SendAsync("UnblockTaskEdit", task.Id);
+                        if (ev.IsDone)
+                        {
+                            // Jeśli event wykonany - blokuj edycję zadania
+                            await _hubContext.Clients.All
+                                .SendAsync("BlockTaskEdit", task.Id);
+                        }
+                        else
+                        {
+                            // Jeśli event niewykonany - odblokuj edycję zadania
+                            await _hubContext.Clients.All
+                                .SendAsync("UnblockTaskEdit", task.Id);
+                        }
                     }
                 }
+
+                // DTO dla admina
+                var eventAdminDto = new
+                {
+                    ev.Id,
+                    ev.Title,
+                    ev.Description,
+                    StartDate = ev.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = ev.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    ev.IsDone,
+                    UserName = ev.User?.UserName ?? "",
+                    CanEdit = true,
+                    CanDelete = true
+                };
+
+                // DTO dla użytkownika
+                var eventUserDto = new
+                {
+                    ev.Id,
+                    ev.Title,
+                    ev.Description,
+                    StartDate = ev.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = ev.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    ev.IsDone,
+                    CanEdit = true,
+                    CanDelete = true
+                };
+
+                // DTO zadań dla admina
+                var taskAdminDtos = tasks.Select(task => new
+                {
+                    task.Id,
+                    task.Title,
+                    task.Description,
+                    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    task.IsDone,
+                    UserName = task.User?.UserName ?? "",
+                    CanEdit = !(ev.IsDone),
+                    CanDelete = true,
+                    ScrumEventDone = ev.IsDone
+                }).ToList();
+
+                // DTO zadań dla użytkownika
+                var taskUserDtos = tasks.Select(task => new
+                {
+                    task.Id,
+                    task.Title,
+                    task.Description,
+                    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    task.IsDone,
+                    CanEdit = !(ev.IsDone),
+                    CanDelete = true,
+                    ScrumEventDone = ev.IsDone
+                }).ToList();
+
+                var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+
+                var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+                var userToSendId = ev.UserId;
+                if (ev.UserId == "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDtos);
+                }
+                else
+                {
+                    // Wysyłka do adminów
+                    await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDtos);
+
+                    // Wysyłka do konkretnego usera
+                    await _hubContext.Clients.User(userToSendId).SendAsync("EventUpdated", eventUserDto);
+                    await _hubContext.Clients.User(userToSendId).SendAsync("EventUpdatesTask", taskUserDtos);
+                }
+
+                TempData["ToastMessage"] = "Status wydarzenia został zmieniony";
+                TempData["ToastType"] = "success";
+
+                return RedirectToPage();
             }
-
-            // DTO dla admina
-            var eventAdminDto = new
+            catch (Exception ex)
             {
-                ev.Id,
-                ev.Title,
-                ev.Description,
-                StartDate = ev.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = ev.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                ev.IsDone,
-                UserName = ev.User?.UserName ?? "",
-                CanEdit = true,
-                CanDelete = true
-            };
-
-            // DTO dla użytkownika
-            var eventUserDto = new
-            {
-                ev.Id,
-                ev.Title,
-                ev.Description,
-                StartDate = ev.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = ev.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                ev.IsDone,
-                CanEdit = true,
-                CanDelete = true
-            };
-
-            // DTO zadań dla admina
-            var taskAdminDtos = tasks.Select(task => new
-            {
-                task.Id,
-                task.Title,
-                task.Description,
-                StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                task.IsDone,
-                UserName = task.User?.UserName ?? "",
-                CanEdit = !(ev.IsDone),
-                CanDelete = true,
-                ScrumEventDone = ev.IsDone
-            }).ToList();
-
-            // DTO zadań dla użytkownika
-            var taskUserDtos = tasks.Select(task => new
-            {
-                task.Id,
-                task.Title,
-                task.Description,
-                StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                task.IsDone,
-                CanEdit = !(ev.IsDone),
-                CanDelete = true,
-                ScrumEventDone = ev.IsDone
-            }).ToList();
-
-            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
-
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
-            var userToSendId = ev.UserId;
-            if(ev.UserId == "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
-            {
-                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
-                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDtos);
+                ModelState.AddModelError("", $"Wystąpił błąd podczas próby zmiany statusu wydarzenia: {ex.Message}");
+                return Page();
             }
-            else
-            {
-                // Wysyłka do adminów
-                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdated", eventAdminDto);
-                await _hubContext.Clients.Users(adminIds).SendAsync("EventUpdatesTask", taskAdminDtos);
-
-                // Wysyłka do konkretnego usera
-                await _hubContext.Clients.User(userToSendId).SendAsync("EventUpdated", eventUserDto);
-                await _hubContext.Clients.User(userToSendId).SendAsync("EventUpdatesTask", taskUserDtos);
-            }
-
-            TempData["ToastMessage"] = "Status wydarzenia został zmieniony";
-            TempData["ToastType"] = "success";
-
-            return RedirectToPage();
         }
         public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
-
-            var ev = await _eventRepository.GetEventByIdAsync(id, userId, isAdmin);
-            if (ev == null)
-                return NotFound();
-
-            await _eventRepository.DeleteEventAsync(ev);
-
-            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
-            var userToSendId = ev.UserId;
-
-            if (isAdmin)
+            try
             {
-                await _hubContext.Clients.User(userToSendId).SendAsync("EventDeleted", ev.Id);
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
+
+                var ev = await _eventRepository.GetEventByIdAsync(id, userId, isAdmin);
+                if (ev == null)
+                    return NotFound();
+
+                await _eventRepository.DeleteEventAsync(ev);
+
+                var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+                var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+                var userToSendId = ev.UserId;
+
+                if (isAdmin)
+                {
+                    await _hubContext.Clients.User(userToSendId).SendAsync("EventDeleted", ev.Id);
+                }
+                else
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("EventDeleted", ev.Id);
+                }
+
+                TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
+                TempData["ToastType"] = "danger";
+
+                return RedirectToPage();
             }
-            else
+            catch (Exception ex)
             {
-                await _hubContext.Clients.Users(adminIds).SendAsync("EventDeleted", ev.Id);
+                ModelState.AddModelError("", $"Wystąpił błąd podczas próby usunięcia wydarzenia: {ex.Message}");
+                return Page();
             }
-
-            TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
-            TempData["ToastType"] = "danger";
-
-            return RedirectToPage();
         }
     }
 }

@@ -53,180 +53,212 @@ namespace ScrumApplication.Pages.Tasks
         public List<TaskItem> Tasks { get; set; } = new();
 
         public List<ScrumEvent> Events { get; set; } = new();
+        public string ErrorMessage { get; set; }
 
         public async Task OnGetAsync()
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
+            try
+            {
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
 
-            Tasks = await _taskRepository.GetTasksAsync(userId, isAdmin);
-            Events = await _eventRepository.GetEventsAsync(userId, isAdmin);
+                Tasks = await _taskRepository.GetTasksAsync(userId, isAdmin);
+                Events = await _eventRepository.GetEventsAsync(userId, isAdmin);
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = ex.Message;
+            }
         }
 
         public async Task<IActionResult> OnPostAsync()
         {
-            if (!ModelState.IsValid)
+            try
             {
-                var firstError = ModelState.Values.SelectMany(v => v.Errors).FirstOrDefault()?.ErrorMessage;
-                if (!string.IsNullOrEmpty(firstError))
+                if (!ModelState.IsValid)
                 {
-                    TempData["ToastMessage"] = firstError;
-                    TempData["ToastType"] = "danger";
+                    var firstError = ModelState.Values.SelectMany(v => v.Errors).FirstOrDefault()?.ErrorMessage;
+                    if (!string.IsNullOrEmpty(firstError))
+                    {
+                        TempData["ToastMessage"] = firstError;
+                        TempData["ToastType"] = "danger";
+                    }
+                    await OnGetAsync();
+                    return Page();
                 }
-                await OnGetAsync();
+
+                if (EndDate <= StartDate)
+                {
+                    ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
+                    await OnGetAsync();
+                    return Page();
+                }
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
+
+                // Walidacja wydarzenia
+                var selectedEvent = await _eventRepository.GetEventByIdAsync(EventId, userId, isAdmin: User.IsInRole("Admin"));
+                if (selectedEvent == null)
+                {
+                    ModelState.AddModelError(nameof(EventId), "Wybrane zadanie nie istnieje.");
+                    await OnGetAsync();
+                    return Page();
+                }
+
+                if (StartDate < selectedEvent.StartDate || EndDate > selectedEvent.EndDate)
+                {
+                    ModelState.AddModelError(nameof(EventId), "Zadanie musi mieścić się w zakresie wybranego wydarzenia.");
+                    await OnGetAsync();
+                    return Page();
+                }
+
+                var newTask = new TaskItem
+                {
+                    Title = Title!,
+                    Description = Description ?? "",
+                    StartDate = StartDate,
+                    EndDate = EndDate,
+                    IsDone = false,
+                    ScrumEventId = EventId,
+                    UserId = userId
+                };
+
+                await _taskRepository.AddTaskAsync(newTask);
+                var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync("98954494-ef5f-4a06-87e4-22ef31417c9c");
+                var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
+                var currentUserId = User.Identity?.Name ?? "";
+
+                var taskDto = new
+                {
+                    newTask.Id,
+                    newTask.Title,
+                    newTask.Description,
+                    StartDate = newTask.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = newTask.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    newTask.IsDone,
+                    UserName = currentUserId,
+                    CanEdit = true,
+                    CanDelete = true
+                };
+
+                if (!isAdmin)
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskAdded", taskDto);
+                }
+
+                TempData["ToastMessage"] = "Dodano nowe zadanie!";
+                TempData["ToastType"] = "success";
+
+                return RedirectToPage();
+            }
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"Wystąpił błąd podczas próby dodania zadania: {ex.Message}");
                 return Page();
             }
-
-            if (EndDate <= StartDate)
-            {
-                ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
-                await OnGetAsync();
-                return Page();
-            }
-
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
-
-            // Walidacja wydarzenia
-            var selectedEvent = await _eventRepository.GetEventByIdAsync(EventId, userId, isAdmin: User.IsInRole("Admin"));
-            if (selectedEvent == null)
-            {
-                ModelState.AddModelError(nameof(EventId), "Wybrane zadanie nie istnieje.");
-                await OnGetAsync();
-                return Page();
-            }
-
-            if (StartDate < selectedEvent.StartDate || EndDate > selectedEvent.EndDate)
-            {
-                ModelState.AddModelError(nameof(EventId), "Zadanie musi mieścić się w zakresie wybranego wydarzenia.");
-                await OnGetAsync();
-                return Page();
-            }
-
-            var newTask = new TaskItem
-            {
-                Title = Title!,
-                Description = Description ?? "",
-                StartDate = StartDate,
-                EndDate = EndDate,
-                IsDone = false,
-                ScrumEventId = EventId,
-                UserId = userId
-            };
-
-            await _taskRepository.AddTaskAsync(newTask);
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync("98954494-ef5f-4a06-87e4-22ef31417c9c");
-            var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
-            var currentUserId = User.Identity?.Name ?? "";
-
-            var taskDto = new
-            {
-                newTask.Id,
-                newTask.Title,
-                newTask.Description,
-                StartDate = newTask.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = newTask.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                newTask.IsDone,
-                UserName = currentUserId,
-                CanEdit = true,
-                CanDelete = true
-            };
-
-            if (!isAdmin)
-            {
-                await _hubContext.Clients.Users(adminIds).SendAsync("TaskAdded", taskDto);                
-            }
-
-            TempData["ToastMessage"] = "Dodano nowe zadanie!";
-            TempData["ToastType"] = "success";
-
-            return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostToggleDoneAsync(int id)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
-
-            var task = await _taskRepository.GetTaskByIdAsync(id, userId, isAdmin);
-            if (task == null)
-                return NotFound();
-
-            task.IsDone = !task.IsDone;
-            await _taskRepository.UpdateTaskAsync(task);
-
-            var taskAdminDto = new
+            try
             {
-                task.Id,
-                task.Title,
-                task.Description,
-                StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                task.IsDone,
-                UserName = task.User?.UserName ?? "",
-                CanEdit = true,
-                CanDelete = true
-            };
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
 
-            var taskUserDto = new
-            {
-                task.Id,
-                task.Title,
-                task.Description,
-                StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                task.IsDone,
-                CanEdit = true,
-                CanDelete = true
-            };
-            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+                var task = await _taskRepository.GetTaskByIdAsync(id, userId, isAdmin);
+                if (task == null)
+                    return NotFound();
 
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
-            var userToSendId = task.UserId;
-            if (task.UserId == "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
-            {
-                await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
+                task.IsDone = !task.IsDone;
+                await _taskRepository.UpdateTaskAsync(task);
+
+                var taskAdminDto = new
+                {
+                    task.Id,
+                    task.Title,
+                    task.Description,
+                    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    task.IsDone,
+                    UserName = task.User?.UserName ?? "",
+                    CanEdit = true,
+                    CanDelete = true
+                };
+
+                var taskUserDto = new
+                {
+                    task.Id,
+                    task.Title,
+                    task.Description,
+                    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    task.IsDone,
+                    CanEdit = true,
+                    CanDelete = true
+                };
+                var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+
+                var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+                var userToSendId = task.UserId;
+                if (task.UserId == "fe2c4ac1-87bd-4fef-9f91-954547d7d4f1")
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
+                }
+                else
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
+                    await _hubContext.Clients.User(userToSendId).SendAsync("TaskUpdated", taskUserDto);
+                }
+
+                TempData["ToastMessage"] = "Status zadania został zmieniony";
+                TempData["ToastType"] = "success";
+
+                return RedirectToPage();
             }
-            else
+            catch (Exception ex)
             {
-                await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
-                await _hubContext.Clients.User(userToSendId).SendAsync("TaskUpdated", taskUserDto);
+                ModelState.AddModelError("", $"Wystąpił błąd podczas próby zmiany statusu zadania: {ex.Message}");
+                return Page();
             }
-
-            TempData["ToastMessage"] = "Status zadania został zmieniony";
-            TempData["ToastType"] = "success";
-
-            return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostDeleteAsync(int id)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
-           
-
-            var task = await _taskRepository.GetTaskByIdAsync(id, userId, isAdmin);
-            if (task == null)
-                return NotFound();
-
-            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
-            await _taskRepository.DeleteTaskAsync(task);
-            var userToSendId = task.UserId;
-
-            if (isAdmin)
+            try
             {
-                await _hubContext.Clients.User(userToSendId).SendAsync("TaskDeleted", task.Id);
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
+
+
+                var task = await _taskRepository.GetTaskByIdAsync(id, userId, isAdmin);
+                if (task == null)
+                    return NotFound();
+
+                var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+                var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+                await _taskRepository.DeleteTaskAsync(task);
+                var userToSendId = task.UserId;
+
+                if (isAdmin)
+                {
+                    await _hubContext.Clients.User(userToSendId).SendAsync("TaskDeleted", task.Id);
+                }
+                else
+                {
+                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskDeleted", task.Id);
+                }
+
+                TempData["ToastMessage"] = "Zadanie zostało usunięte";
+                TempData["ToastType"] = "danger";
+
+                return RedirectToPage();
             }
-            else
+            catch (Exception ex)
             {
-                await _hubContext.Clients.Users(adminIds).SendAsync("TaskDeleted", task.Id);
+                ModelState.AddModelError("", $"Wystąpił błąd podczas próby usunięcia zadania: {ex.Message}");
+                return Page();
             }
-
-            TempData["ToastMessage"] = "Zadanie zostało usunięte";
-            TempData["ToastType"] = "danger";
-
-            return RedirectToPage();
         }
     }
 }

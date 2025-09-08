@@ -44,103 +44,120 @@ namespace ScrumApplication.Pages.Tasks
         [BindProperty]
         [Required(ErrorMessage = "Data zakończenia jest wymagana")]
         public DateTime EndDate { get; set; }
+        public string ErrorMessage { get; set; }
 
         public async Task<IActionResult> OnGetAsync(int id)
         {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
-
-            var task = await _taskRepository.GetTaskByIdAsync(id, userId, isAdmin);
-            if (task == null)
-                return NotFound();
-
-            // Sprawdź czy powiązane wydarzenie jest wykonane
-            if (task.ScrumEvent != null && task.ScrumEvent.IsDone)
+            try
             {
-                TempData["ToastMessage"] = "Nie można edytować zadania, ponieważ powiązane wydarzenie zostało oznaczone jako wykonane.";
-                TempData["ToastType"] = "warning";
-                return RedirectToPage("/Tasks/Index");
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
+
+                var task = await _taskRepository.GetTaskByIdAsync(id, userId, isAdmin);
+                if (task == null)
+                    return NotFound();
+
+                // Sprawdź czy powiązane wydarzenie jest wykonane
+                if (task.ScrumEvent != null && task.ScrumEvent.IsDone)
+                {
+                    TempData["ToastMessage"] = "Nie można edytować zadania, ponieważ powiązane wydarzenie zostało oznaczone jako wykonane.";
+                    TempData["ToastType"] = "warning";
+                    return RedirectToPage("/Tasks/Index");
+                }
+
+                Id = task.Id;
+                Title = task.Title;
+                Description = task.Description;
+                StartDate = task.StartDate;
+                EndDate = task.EndDate;
+
+                return Page();
             }
-
-            Id = task.Id;
-            Title = task.Title;
-            Description = task.Description;
-            StartDate = task.StartDate;
-            EndDate = task.EndDate;
-
-            return Page();
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"Wystąpił błąd podczas próby wczytania strony edycji zadania: {ex.Message}");
+                return Page();
+            }
         }
         public async Task<IActionResult> OnPostAsync()
         {
-            if (!ModelState.IsValid)
-                return Page();
-
-            if (EndDate <= StartDate)
+            try
             {
-                ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
-                return Page();
-            }
+                if (!ModelState.IsValid)
+                    return Page();
 
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var isAdmin = User.IsInRole("Admin");
-
-            var task = await _taskRepository.GetTaskByIdAsync(Id, userId, isAdmin);
-            if (task == null)
-                return NotFound();
-
-            task.Title = Title!;
-            task.Description = Description!;
-            task.StartDate = StartDate;
-            task.EndDate = EndDate;
-
-            await _taskRepository.UpdateTaskAsync(task);
-            //var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
-
-            var taskAdminDto = new
-            {
-                task.Id,
-                task.Title,
-                task.Description,
-                StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                task.IsDone,
-                UserName = task.User?.UserName ?? "",
-                CanEdit = true,
-                CanDelete = true
-            };
-
-            var taskUserDto = new
-            {
-                task.Id,
-                task.Title,
-                task.Description,
-                StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
-                EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
-                task.IsDone,
-                CanEdit = true,
-                CanDelete = true
-            };
-
-            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
-            var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
-            var userToSendId = task.UserId;
-
-            if (isAdmin)
-            {
-                await _hubContext.Clients.User(userToSendId).SendAsync("TaskUpdated", taskUserDto);
-            }
-            else
-            {
-                if (adminIds.Count() > 0)
+                if (EndDate <= StartDate)
                 {
-                    await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
+                    ModelState.AddModelError(nameof(EndDate), "Data i godzina zakończenia muszą być późniejsze niż rozpoczęcia.");
+                    return Page();
                 }
+
+                var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var isAdmin = User.IsInRole("Admin");
+
+                var task = await _taskRepository.GetTaskByIdAsync(Id, userId, isAdmin);
+                if (task == null)
+                    return NotFound();
+
+                task.Title = Title!;
+                task.Description = Description!;
+                task.StartDate = StartDate;
+                task.EndDate = EndDate;
+
+                await _taskRepository.UpdateTaskAsync(task);
+                //var userIds = await _userRoleRepository.GetUserIdsNotInRolesAsync(adminIds);
+
+                var taskAdminDto = new
+                {
+                    task.Id,
+                    task.Title,
+                    task.Description,
+                    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    task.IsDone,
+                    UserName = task.User?.UserName ?? "",
+                    CanEdit = true,
+                    CanDelete = true
+                };
+
+                var taskUserDto = new
+                {
+                    task.Id,
+                    task.Title,
+                    task.Description,
+                    StartDate = task.StartDate.ToString("yyyy-MM-dd HH:mm"),
+                    EndDate = task.EndDate.ToString("yyyy-MM-dd HH:mm"),
+                    task.IsDone,
+                    CanEdit = true,
+                    CanDelete = true
+                };
+
+                var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+                var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+                var userToSendId = task.UserId;
+
+                if (isAdmin)
+                {
+                    await _hubContext.Clients.User(userToSendId).SendAsync("TaskUpdated", taskUserDto);
+                }
+                else
+                {
+                    if (adminIds.Count() > 0)
+                    {
+                        await _hubContext.Clients.Users(adminIds).SendAsync("TaskUpdated", taskAdminDto);
+                    }
+                }
+
+                TempData["ToastMessage"] = "Zadanie zostało zaktualizowane";
+                TempData["ToastType"] = "success";
+
+                return RedirectToPage("/Tasks/Index");
             }
-
-            TempData["ToastMessage"] = "Zadanie zostało zaktualizowane";
-            TempData["ToastType"] = "success";
-
-            return RedirectToPage("/Tasks/Index");
+            catch (Exception ex)
+            {
+                ModelState.AddModelError("", $"Wystąpił błąd podczas próby edycji zadania: {ex.Message}");
+                return Page();
+            }
         }
     }
 }
