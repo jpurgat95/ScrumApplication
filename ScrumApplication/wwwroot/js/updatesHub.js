@@ -536,6 +536,47 @@ connection.on("UserRegistered", (userName, userId) => {
     tbody.prepend(tr);
     console.log('Nowy użytkownik został dodany do tabeli:', userName);
 });
+//Usuwanie powiązanych zadań po usunięciu wydarzenia
+connection.on("RelatedTasksDeleted", (eventId, taskIds) => {
+    const table = $('#tasksTable').DataTable();
+    taskIds.forEach(taskId => {
+        const row = $(`#task-${taskId}`);
+        if (row.length) {
+            table.row(row).remove().draw(false);
+        }
+    });
+
+    // Toast
+    var toastEl = document.getElementById('liveToast');
+    var toastBody = toastEl.querySelector('.toast-body');
+    toastBody.textContent = `Zadania powiązane z usuniętym wydarzeniem zostały wymazane`;
+    toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
+    toastEl.classList.add('bg-danger', 'text-white');
+    new bootstrap.Toast(toastEl).show();
+
+    // Odświeżenie kalendarza JS (jeśli wymagane)
+    if (window.calendar) {
+        calendar.refetchEvents();
+        console.log(`🔄 FullCalendar odświeżony po usunięciu powiązanych zadań wydarzenia #${eventId}`);
+    }
+});
+// Aktualizacja listy wydarzeń w formularzu dodawania/edycji zadania
+connection.on("EventsListUpdated", (events) => {
+    const select = document.querySelector('select[name="EventId"]');
+    if (!select) return;
+
+    // Usuń wszystkie istniejące opcje oprócz domyślnej (value="")
+    select.querySelectorAll('option:not([value=""])').forEach(option => option.remove());
+
+    // Dodaj nowe opcje z aktualnej listy wydarzeń
+    events.forEach(ev => {
+        const option = document.createElement('option');
+        option.value = ev.id;
+        option.textContent = `${ev.title} (${new Date(ev.startDate).toLocaleString()} : ${new Date(ev.endDate).toLocaleString()})`;
+        select.appendChild(option);
+    });
+});
+
 // Delegowanie kliknięć toggle-done dla zadań
 $(document).on('click', '.toggle-done-task', function (e) {
     e.preventDefault();

@@ -37,4 +37,8 @@ public class UpdatesHub : Hub
         => await Clients.All.SendAsync("ForcePasswordReset", resetUrl);
     public async Task UserRegistered(string userName, string userId)    
        => await Clients.All.SendAsync("UserRegistered", userName, userId);
+    public async Task RelatedTasksDeleted(int eventId, List<int> taskIds)
+    => await Clients.All.SendAsync("RelatedTasksDeleted", eventId, taskIds);
+    public async Task EventsListUpdated(List<ScrumEvent> events)
+    => await Clients.All.SendAsync("EventsListUpdated", events);
 }

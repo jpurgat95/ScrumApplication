@@ -119,6 +119,18 @@ namespace ScrumApplication.Pages.Events
 
                 var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
                 var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
+                var userToSendId = newEvent.UserId;
+
+                // Pobierz wydarzenia dla adminów (pełne)
+                var adminEvents = await _eventRepository.GetEventsAsync(null, true);
+                // Pobierz wydarzenia dla usera (tylko swoje)
+                var userEvents = await _eventRepository.GetEventsAsync(userToSendId, false);
+
+                // Wyślij aktualizację listy do adminów
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventsListUpdated", adminEvents);
+
+                // Wyślij aktualizację listy do użytkownika
+                await _hubContext.Clients.User(userToSendId).SendAsync("EventsListUpdated", userEvents);
 
                 if (!isAdmin)
                 {
@@ -143,7 +155,6 @@ namespace ScrumApplication.Pages.Events
             {
                 var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
                 var isAdmin = User.IsInRole("Admin");
-
                 var ev = await _eventRepository.GetEventByIdAsync(id, userId, isAdmin);
                 if (ev == null)
                     return NotFound();
@@ -272,24 +283,50 @@ namespace ScrumApplication.Pages.Events
                 if (ev == null)
                     return NotFound();
 
+                // 1. Pobierz identyfikatory powiązanych zadań PRZED usunięciem wydarzenia
+                var taskList = await _taskRepository.GetTasksByEventIdAsync(ev.Id);
+                var relatedTaskIds = taskList.Select(t => t.Id).ToList();
+
+                // 2. Usuń wydarzenie (zadania usuwają się automatycznie dzięki CASCADE)
                 await _eventRepository.DeleteEventAsync(ev);
 
-                var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
+                // 3. SignalR – powiadom o usunięciu wydarzenia oraz powiązanych zadań
+                var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c";
                 var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
                 var userToSendId = ev.UserId;
+
+                // Pobierz wydarzenia dla adminów (pełne)
+                var adminEvents = await _eventRepository.GetEventsAsync(null, true);
+                // Pobierz wydarzenia dla usera (tylko swoje)
+                var userEvents = await _eventRepository.GetEventsAsync(userToSendId, false);
+
+                // Wyślij aktualizację listy do adminów
+                await _hubContext.Clients.Users(adminIds).SendAsync("EventsListUpdated", adminEvents);
+
+                // Wyślij aktualizację listy do użytkownika
+                await _hubContext.Clients.User(userToSendId).SendAsync("EventsListUpdated", userEvents);
+
 
                 if (isAdmin)
                 {
                     await _hubContext.Clients.User(userToSendId).SendAsync("EventDeleted", ev.Id);
+                    await _hubContext.Clients.User(userToSendId).SendAsync("RelatedTasksDeleted", ev.Id, relatedTaskIds);
+
+                    // Powiadom siebie (zawsze!)
+                    await _hubContext.Clients.User(userId).SendAsync("RelatedTasksDeleted", ev.Id, relatedTaskIds);
                 }
                 else
                 {
                     await _hubContext.Clients.Users(adminIds).SendAsync("EventDeleted", ev.Id);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("RelatedTasksDeleted", ev.Id, relatedTaskIds);
+
+                    // Powiadom siebie (zawsze!)
+                    await _hubContext.Clients.User(userId).SendAsync("RelatedTasksDeleted", ev.Id, relatedTaskIds);
                 }
+
 
                 TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
                 TempData["ToastType"] = "danger";
-
                 return RedirectToPage();
             }
             catch (Exception ex)
@@ -298,5 +335,6 @@ namespace ScrumApplication.Pages.Events
                 return Page();
             }
         }
+
     }
 }

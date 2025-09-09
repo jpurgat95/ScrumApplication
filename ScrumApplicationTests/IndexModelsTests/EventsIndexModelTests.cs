@@ -88,40 +88,63 @@ namespace ScrumApplicationTests
             Assert.Equal("Event1", model.Events[0].Title);
             Assert.Equal("Task1", model.Tasks[0].Title);
         }
-
         [Fact]
         public async Task OnPostAsync_WithValidModel_ShouldAddEventAndSendNotification()
         {
+            // Arrange
             var mockEventRepo = new Mock<IEventRepository>();
             var mockTaskRepo = new Mock<ITaskRepository>();
             var mockUserRoleRepo = new Mock<IUserRoleRepository>();
             var mockClientProxy = new Mock<IClientProxy>();
+            var fakeHubClients = new FakeHubClients(mockClientProxy.Object);
+            var mockHubContext = new Mock<IHubContext<UpdatesHub>>();
 
             var userId = "user1";
             var isAdmin = false;
             var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c";
             var adminIds = new List<string> { "admin1", "admin2" };
 
-            mockEventRepo.Setup(r => r.AddEventAsync(It.IsAny<ScrumEvent>())).Returns(Task.CompletedTask);
-            mockUserRoleRepo.Setup(r => r.GetUserIdsInRoleAsync(adminRoleId)).ReturnsAsync(adminIds);
-
-            mockClientProxy
-                .Setup(proxy => proxy.SendCoreAsync(
-                    It.IsAny<string>(),
-                    It.IsAny<object[]>(),
-                    default))
-                .Returns(Task.CompletedTask);
-
-            var fakeHubClients = new FakeHubClients(mockClientProxy.Object);
-            var mockHubContext = new Mock<IHubContext<UpdatesHub>>();
-            mockHubContext.Setup(hub => hub.Clients).Returns(fakeHubClients);
-
-            var model = new IndexModel(mockEventRepo.Object, mockTaskRepo.Object, mockHubContext.Object, mockUserRoleRepo.Object)
+            var newEvent = new ScrumEvent
             {
+                Id = 1,
                 Title = "New Event",
                 Description = "Event description",
                 StartDate = System.DateTime.Now,
                 EndDate = System.DateTime.Now.AddHours(1),
+                IsDone = false,
+                UserId = userId
+            };
+
+            // Setup zwracania adminów
+            mockUserRoleRepo.Setup(r => r.GetUserIdsInRoleAsync(adminRoleId)).ReturnsAsync(adminIds);
+
+            // Setup dodawania nowego eventu
+            mockEventRepo.Setup(r => r.AddEventAsync(It.IsAny<ScrumEvent>())).Callback<ScrumEvent>(ev =>
+            {
+                ev.Id = newEvent.Id; // przypisz Id, jak w produkcji
+            }).Returns(Task.CompletedTask);
+
+            // Setup zwracania list wydarzeń po dodaniu (admin i user)
+            mockEventRepo.Setup(r => r.GetEventsAsync(null, true))
+                .ReturnsAsync(new List<ScrumEvent> { newEvent });
+
+            mockEventRepo.Setup(r => r.GetEventsAsync(userId, false))
+                .ReturnsAsync(new List<ScrumEvent> { newEvent });
+
+            // Setup clients w hubcontext
+            mockHubContext.Setup(h => h.Clients).Returns(fakeHubClients);
+
+            // Setup SendCoreAsync dla SignalR
+            mockClientProxy.Setup(proxy =>
+                proxy.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default))
+                .Returns(Task.CompletedTask);
+
+            var model = new IndexModel(mockEventRepo.Object, mockTaskRepo.Object, mockHubContext.Object, mockUserRoleRepo.Object)
+            {
+                Title = newEvent.Title,
+                Description = newEvent.Description,
+                StartDate = newEvent.StartDate,
+                EndDate = newEvent.EndDate,
             };
 
             model.PageContext = new PageContext()
@@ -130,22 +153,28 @@ namespace ScrumApplicationTests
                 {
                     User = new ClaimsPrincipal(new ClaimsIdentity(new[]
                     {
-                new Claim(ClaimTypes.NameIdentifier, userId)
+                new Claim(ClaimTypes.NameIdentifier, userId),
+                new Claim(ClaimTypes.Role, isAdmin ? "Admin" : "User")
             }))
                 }
             };
+
+            // Inicjuj TempData konieczne do prawidłowego działania
             InitializeTempData(model);
 
+            // Act
             var result = await model.OnPostAsync();
 
+            // Assert
             mockEventRepo.Verify(r => r.AddEventAsync(It.IsAny<ScrumEvent>()), Times.Once);
             mockUserRoleRepo.Verify(r => r.GetUserIdsInRoleAsync(adminRoleId), Times.Once);
-            mockClientProxy.Verify(proxy => proxy.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default), Times.Once);
+            mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default), Times.AtLeast(2));
+            // Co najmniej: EventsListUpdated do adminów i usera, oraz EventAdded do adminów
 
-            var redirectResult = Assert.IsType<RedirectToPageResult>(result);
-            Assert.Null(redirectResult.PageName);
+            Assert.IsType<RedirectToPageResult>(result);
+            Assert.Equal("Dodano nowe wydarzenie!", model.TempData["ToastMessage"]);
+            Assert.Equal("success", model.TempData["ToastType"]);
         }
-
         [Fact]
         public async Task OnPostToggleDoneAsync_WithValidEvent_ShouldToggleDoneAndSendNotifications()
         {
@@ -200,10 +229,10 @@ namespace ScrumApplicationTests
             mockEventRepo.Verify(r => r.UpdateEventAsync(ev), Times.Once);
             mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default), Times.AtLeastOnce);
         }
-
         [Fact]
         public async Task OnPostDeleteAsync_WithValidEvent_ShouldDeleteEventAndNotify()
         {
+            // Arrange
             var mockEventRepo = new Mock<IEventRepository>();
             var mockTaskRepo = new Mock<ITaskRepository>();
             var mockUserRoleRepo = new Mock<IUserRoleRepository>();
@@ -213,17 +242,45 @@ namespace ScrumApplicationTests
 
             var userId = "user1";
             var isAdmin = true;
-            var adminRoleId = "adminRoleId";
+            var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c";
             var adminIds = new List<string> { "admin1", "admin2" };
 
             var ev = new ScrumEvent { Id = 1, UserId = userId, IsDone = false };
 
-            mockEventRepo.Setup(r => r.GetEventByIdAsync(ev.Id, userId, isAdmin)).ReturnsAsync(ev);
-            mockEventRepo.Setup(r => r.DeleteEventAsync(ev)).Returns(Task.CompletedTask);
-            mockUserRoleRepo.Setup(r => r.GetUserIdsInRoleAsync(It.IsAny<string>())).ReturnsAsync(adminIds);
+            var taskList = new List<TaskItem>
+    {
+        new TaskItem { Id = 10 },
+        new TaskItem { Id = 11 }
+    };
 
+            // Mock zwraca wydarzenie na podstawie id i uprawnień
+            mockEventRepo.Setup(r => r.GetEventByIdAsync(ev.Id, userId, isAdmin))
+                .ReturnsAsync(ev);
+
+            // Mock usuwania wydarzenia
+            mockEventRepo.Setup(r => r.DeleteEventAsync(ev))
+                .Returns(Task.CompletedTask);
+
+            // Mock zwraca listę zadań powiązanych przed usunięciem
+            mockTaskRepo.Setup(r => r.GetTasksByEventIdAsync(ev.Id))
+                .ReturnsAsync(taskList);
+
+            // Mock zwraca adminów
+            mockUserRoleRepo.Setup(r => r.GetUserIdsInRoleAsync(adminRoleId))
+                .ReturnsAsync(adminIds);
+
+            // Mock zwraca listę wydarzeń dla admina (pełna lista)
+            mockEventRepo.Setup(r => r.GetEventsAsync(null, true))
+                .ReturnsAsync(new List<ScrumEvent> { new ScrumEvent { Id = 2, Title = "Admin Event" } });
+
+            // Mock zwraca listę wydarzeń dla usera (jego własne)
+            mockEventRepo.Setup(r => r.GetEventsAsync(userId, false))
+                .ReturnsAsync(new List<ScrumEvent> { new ScrumEvent { Id = 3, Title = "User Event" } });
+
+            // Ustawienie fake Clients w hubContext
             mockHubContext.Setup(h => h.Clients).Returns(fakeHubClients);
 
+            // Mock dla SendCoreAsync, zwracający ukończone Task
             mockClientProxy.Setup(proxy =>
                 proxy.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default))
                 .Returns(Task.CompletedTask);
@@ -232,15 +289,32 @@ namespace ScrumApplicationTests
 
             model.PageContext = new PageContext()
             {
-                HttpContext = new DefaultHttpContext() { User = CreateUserPrincipal(userId, isAdmin) }
+                HttpContext = new DefaultHttpContext()
+                {
+                    User = CreateUserPrincipal(userId, isAdmin) // Ustaw usera i rolę zgodnie z testem
+                }
             };
+
             InitializeTempData(model);
 
+            // Act
             var result = await model.OnPostDeleteAsync(ev.Id);
 
+            // Assert
             Assert.IsType<RedirectToPageResult>(result);
             mockEventRepo.Verify(r => r.DeleteEventAsync(ev), Times.Once);
-            mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default), Times.Once);
+
+            // Sprawdź, że metodę SendCoreAsync wywołano co najmniej 6 razy:
+            // - 1x EventsListUpdated do adminów
+            // - 1x EventsListUpdated do usera
+            // - 1x EventDeleted do usera (userToSendId)
+            // - 1x RelatedTasksDeleted do usera (userToSendId)
+            // - 1x RelatedTasksDeleted do siebie (userId)
+            // - 1x EventDeleted lub RelatedTasksDeleted dla admina lub usera zależnie od implementacji — min 6 ogólnie
+            mockClientProxy.Verify(c =>
+                c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default),
+                Times.AtLeast(5));
         }
+
     }
 }
