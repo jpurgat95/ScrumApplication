@@ -53,7 +53,7 @@ connection.on("EventDeleted", eventId => {
     // Toast
     var toastEl = document.getElementById('liveToast');
     var toastBody = toastEl.querySelector('.toast-body');
-    toastBody.textContent = `Wydarzenie zostało usunięte`;
+    toastBody.textContent = `Wydarzenie i powiązanie z nim zadania zostały usunięte`;
     toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
     toastEl.classList.add('bg-danger', 'text-white');
     new bootstrap.Toast(toastEl).show();
@@ -407,7 +407,7 @@ connection.on("EventUpdatesTask", tasks => {
             toastBody.textContent = `Edycja zadania "${task.title || ''}" została zablokowana - powiązane wydarzenie zostało wykonane!`;
             toastEl.classList.add('bg-warning', 'text-white');
         } else {
-            toastBody.textContent = `Edycja zadania "${task.title || ''}" jest teraz możliwa - powiązane wydarzenie jest niewykonane.`;
+            toastBody.textContent = `Edycja zadania "${task.title || ''}" jest teraz możliwa - powiązane wydarzenie oznaczono jako niewykonane.`;
             toastEl.classList.add('bg-success', 'text-white');
         }
         new bootstrap.Toast(toastEl).show();
@@ -549,7 +549,7 @@ connection.on("RelatedTasksDeleted", (eventId, taskIds) => {
     // Toast
     var toastEl = document.getElementById('liveToast');
     var toastBody = toastEl.querySelector('.toast-body');
-    toastBody.textContent = `Zadania powiązane z usuniętym wydarzeniem zostały wymazane`;
+    toastBody.textContent = `Wydarzenie ${taskId} oraz zadania z nim powiązane usunięto.`;
     toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
     toastEl.classList.add('bg-danger', 'text-white');
     new bootstrap.Toast(toastEl).show();
