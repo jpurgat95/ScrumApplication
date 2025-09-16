@@ -39,7 +39,7 @@ public class EditEventPageTests : IClassFixture<TestDependencyInjectionFixture>
             Description = "Opis do edycji",
             StartDate = DateTime.Now.AddDays(1).Date.AddHours(10),
             EndDate = DateTime.Now.AddDays(1).Date.AddHours(12),
-            UserId = "232a5f6d-e706-407c-92b3-832fd342aec2" // Twój testowy UserId
+            UserId = "bd76f037-c7b5-4e84-ac74-566aa687a23c" // Twój testowy UserId
         };
 
         await _eventRepository.AddEventAsync(newEvent); // Dodaj event do bazy

@@ -80,7 +80,7 @@ namespace ScrumApplicationTests.SeleniumTests
                 Description = "Wydarzenie utworzone do testu dodawania zadania",
                 StartDate = DateTime.Now,
                 EndDate = DateTime.Now.AddHours(2),
-                UserId = "232a5f6d-e706-407c-92b3-832fd342aec2"
+                UserId = "bd76f037-c7b5-4e84-ac74-566aa687a23c"
             };
             await _eventRepository.AddEventAsync(newEvent);
             int eventId = newEvent.Id;
@@ -144,7 +144,7 @@ namespace ScrumApplicationTests.SeleniumTests
                 Description = "Wydarzenie do testu zmiany statusu",
                 StartDate = DateTime.Now,
                 EndDate = DateTime.Now.AddHours(2),
-                UserId = "232a5f6d-e706-407c-92b3-832fd342aec2"
+                UserId = "bd76f037-c7b5-4e84-ac74-566aa687a23c"
             };
             await _eventRepository.AddEventAsync(newEvent);
             int eventId = newEvent.Id;
@@ -156,7 +156,7 @@ namespace ScrumApplicationTests.SeleniumTests
             LoginAsUser(driver);
 
             driver.Navigate().GoToUrl("https://localhost:7264/Tasks");
-            driver.Navigate().Refresh();
+            wait.Until(drv => ((IJavaScriptExecutor)drv).ExecuteScript("return document.readyState").ToString() == "complete");
 
             string uniqueTaskTitle = GenerateUniqueTitle("Test zmiany statusu zadania");
             string taskDescription = "Opis do testu przełączania statusu";
@@ -177,7 +177,6 @@ namespace ScrumApplicationTests.SeleniumTests
 
             DateTime startDate = DateTime.Now.AddMinutes(5);
             DateTime endDate = DateTime.Now.AddHours(1);
-
             ((IJavaScriptExecutor)driver).ExecuteScript($"document.getElementById('StartDate').value = '{startDate:yyyy-MM-ddTHH:mm}';");
             ((IJavaScriptExecutor)driver).ExecuteScript($"document.getElementById('EndDate').value = '{endDate:yyyy-MM-ddTHH:mm}';");
 
@@ -187,17 +186,28 @@ namespace ScrumApplicationTests.SeleniumTests
             WaitForToastToDisappear(wait);
 
             driver.Navigate().Refresh();
+            wait.Until(drv => ((IJavaScriptExecutor)drv).ExecuteScript("return document.readyState").ToString() == "complete");
 
-            var taskRow = wait.Until(drv =>
+            IWebElement taskRow = null;
+            taskRow = wait.Until(drv =>
             {
                 var rows = drv.FindElements(By.CssSelector("#tasksTable tbody tr"));
-                return rows.FirstOrDefault(r => r.Text.Contains(uniqueTaskTitle));
+                var row = rows.FirstOrDefault(r => r.Text.Contains(uniqueTaskTitle));
+                return row != null && row.Displayed ? row : null;
             });
             Assert.NotNull(taskRow);
 
             var toggleBtn = taskRow.FindElement(By.CssSelector("button.toggle-done-task"));
             ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView({block: 'center'});", toggleBtn);
             ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", toggleBtn);
+
+            // Po kliknięciu ponownie pobierz taskRow, bo DOM się zmienił
+            taskRow = wait.Until(drv =>
+            {
+                var rows = drv.FindElements(By.CssSelector("#tasksTable tbody tr"));
+                var row = rows.FirstOrDefault(r => r.Text.Contains(uniqueTaskTitle));
+                return row != null && row.Displayed ? row : null;
+            });
 
             var statusChanged = wait.Until(drv =>
             {
@@ -208,6 +218,7 @@ namespace ScrumApplicationTests.SeleniumTests
 
             Assert.True(statusChanged);
         }
+
         [Fact]
         public async Task TasksPage_Add_Task_And_Delete_It()
         {
@@ -218,7 +229,7 @@ namespace ScrumApplicationTests.SeleniumTests
                 Description = "Wydarzenie do testu usuwania zadania",
                 StartDate = DateTime.Now,
                 EndDate = DateTime.Now.AddHours(2),
-                UserId = "232a5f6d-e706-407c-92b3-832fd342aec2" // Twój testowy UserId
+                UserId = "bd76f037-c7b5-4e84-ac74-566aa687a23c" // Twój testowy UserId
             };
             await _eventRepository.AddEventAsync(newEvent);
             int eventId = newEvent.Id;

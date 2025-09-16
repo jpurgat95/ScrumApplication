@@ -58,6 +58,8 @@ public class RegisterModel : PageModel
 
             var user = new IdentityUser { UserName = Input.Email, Email = Input.Email };
             var result = await _userManager.CreateAsync(user, Input.Password);
+            await _userManager.AddToRoleAsync(user, "User");
+
             if (result.Succeeded)
             {
                 var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina

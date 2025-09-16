@@ -94,15 +94,17 @@ namespace ScrumApplicationTests.SeleniumTests
             Assert.NotNull(matchingRow);
             Assert.Contains(uniqueTitle, matchingRow.Text);
         }
-
         [Fact]
         public void EventsPage_Add_Event_And_Toggle_Status_Check()
         {
             using var driver = CreateDriver();
-            LoginAsUser(driver);
-            driver.Navigate().GoToUrl("https://localhost:7264/Events");
-
             var wait = CreateWait(driver);
+
+            LoginAsUser(driver);
+
+            driver.Navigate().GoToUrl("https://localhost:7264/Events");
+            wait.Until(drv => ((IJavaScriptExecutor)drv).ExecuteScript("return document.readyState").ToString() == "complete");
+
             string uniqueTitle = GenerateUniqueTitle("Test zmiany statusu");
 
             var titleInput = wait.Until(ExpectedConditions.ElementIsVisible(By.Id("Title")));
@@ -122,31 +124,43 @@ namespace ScrumApplicationTests.SeleniumTests
             var submitBtn = wait.Until(ExpectedConditions.ElementToBeClickable(By.CssSelector("button.btn.btn-success")));
             submitBtn.Click();
 
-            // Odśwież stronę po dodaniu wydarzenia
-            driver.Navigate().Refresh();
+            WaitForToastToDisappear(wait);
 
-            var eventRow = wait.Until(drv =>
+            // Odśwież stronę i czekaj na pełne załadowanie
+            driver.Navigate().Refresh();
+            wait.Until(drv => ((IJavaScriptExecutor)drv).ExecuteScript("return document.readyState").ToString() == "complete");
+
+            IWebElement eventRow = wait.Until(drv =>
             {
                 var rows = drv.FindElements(By.CssSelector("#eventsTable tbody tr"));
-                return rows.FirstOrDefault(r => r.Text.Contains(uniqueTitle));
+                var row = rows.FirstOrDefault(r => r.Text.Contains(uniqueTitle));
+                return row != null && row.Displayed ? row : null;
             });
-
             Assert.NotNull(eventRow);
             Assert.Contains(uniqueTitle, eventRow.Text);
-
-            WaitForToastToDisappear(wait);
 
             var toggleBtn = eventRow.FindElement(By.CssSelector("button.toggle-done"));
             ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].scrollIntoView({block: 'center'});", toggleBtn);
             ((IJavaScriptExecutor)driver).ExecuteScript("arguments[0].click();", toggleBtn);
 
-            wait.Until(drv =>
+            // Po kliknięciu ponownie znajdź eventRow, bo DOM się zmienił
+            eventRow = wait.Until(drv =>
+            {
+                var rows = drv.FindElements(By.CssSelector("#eventsTable tbody tr"));
+                var row = rows.FirstOrDefault(r => r.Text.Contains(uniqueTitle));
+                return row != null && row.Displayed ? row : null;
+            });
+
+            var statusChanged = wait.Until(drv =>
             {
                 var statusCell = eventRow.FindElement(By.CssSelector("td.event-status span.badge"));
                 var statusText = statusCell.Text.Trim();
                 return statusCell.Displayed && (statusText == "Wykonane" || statusText == "W trakcie");
             });
+
+            Assert.True(statusChanged);
         }
+
         [Fact]
         public void EventsPage_Add_Event_And_Delete_It()
         {

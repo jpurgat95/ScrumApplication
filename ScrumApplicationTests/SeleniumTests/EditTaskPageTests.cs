@@ -53,7 +53,7 @@ namespace ScrumApplicationTests.SeleniumTests
                 Description = "Opis wydarzenia do testu zadania",
                 StartDate = DateTime.Now.AddDays(1),
                 EndDate = DateTime.Now.AddDays(1).AddHours(2),
-                UserId = "232a5f6d-e706-407c-92b3-832fd342aec2"
+                UserId = "bd76f037-c7b5-4e84-ac74-566aa687a23c"
             };
             await _eventRepository.AddEventAsync(newEvent);
 
@@ -65,7 +65,7 @@ namespace ScrumApplicationTests.SeleniumTests
                 ScrumEventId = newEvent.Id,
                 StartDate = DateTime.Now.AddDays(1).AddHours(1),
                 EndDate = DateTime.Now.AddDays(1).AddHours(2),
-                UserId = "232a5f6d-e706-407c-92b3-832fd342aec2"
+                UserId = "bd76f037-c7b5-4e84-ac74-566aa687a23c"
             };
             await _taskRepository.AddTaskAsync(newTask);
 
