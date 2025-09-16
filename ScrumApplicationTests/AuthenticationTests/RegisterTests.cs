@@ -144,9 +144,8 @@ namespace ScrumApplicationTests
             Assert.True(model.ModelState.ContainsKey("Input.Email"));
             Assert.Contains(model.ModelState["Input.Email"].Errors, e => e.ErrorMessage.Contains("już istnieje"));
         }
-
         [Fact]
-        public async Task OnPostAsync_ValidModel_CreatesUserAndSignsIn()
+        public async Task OnPostAsync_ValidModel_CreatesUserAssignsRoleAndSignsIn()
         {
             var userManagerMock = CreateUserManagerMock();
             var signInManagerMock = CreateSignInManagerMock(userManagerMock);
@@ -158,11 +157,9 @@ namespace ScrumApplicationTests
 
             userManagerMock.Setup(u => u.FindByEmailAsync(It.IsAny<string>())).ReturnsAsync((IdentityUser)null);
             userManagerMock.Setup(u => u.CreateAsync(It.IsAny<IdentityUser>(), It.IsAny<string>())).ReturnsAsync(IdentityResult.Success);
-
+            userManagerMock.Setup(u => u.AddToRoleAsync(It.IsAny<IdentityUser>(), "User")).ReturnsAsync(IdentityResult.Success);
             mockUserRoleRepo.Setup(r => r.GetUserIdsInRoleAsync(It.IsAny<string>())).ReturnsAsync(new List<string> { "admin1" });
-
             signInManagerMock.Setup(s => s.SignInAsync(It.IsAny<IdentityUser>(), false, null)).Returns(Task.CompletedTask);
-
             mockClientProxy.Setup(p => p.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default)).Returns(Task.CompletedTask);
 
             var model = new RegisterModel(userManagerMock.Object, signInManagerMock.Object, mockHubContext.Object, mockUserRoleRepo.Object)
@@ -188,6 +185,9 @@ namespace ScrumApplicationTests
             var result = await model.OnPostAsync();
 
             Assert.IsType<RedirectToPageResult>(result);
+
+            userManagerMock.Verify(u => u.CreateAsync(It.IsAny<IdentityUser>(), It.IsAny<string>()), Times.Once);
+            userManagerMock.Verify(u => u.AddToRoleAsync(It.IsAny<IdentityUser>(), "User"), Times.Once);
             signInManagerMock.Verify(s => s.SignInAsync(It.IsAny<IdentityUser>(), false, null), Times.Once);
             mockClientProxy.Verify(p => p.SendCoreAsync("UserRegistered", It.IsAny<object[]>(), default), Times.Once);
         }

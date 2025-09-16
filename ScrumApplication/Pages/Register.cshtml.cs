@@ -58,10 +58,19 @@ public class RegisterModel : PageModel
 
             var user = new IdentityUser { UserName = Input.Email, Email = Input.Email };
             var result = await _userManager.CreateAsync(user, Input.Password);
-            await _userManager.AddToRoleAsync(user, "User");
 
             if (result.Succeeded)
             {
+                var roleResult = await _userManager.AddToRoleAsync(user, "User");
+                if (!roleResult.Succeeded)
+                {
+                    foreach (var error in roleResult.Errors)
+                    {
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    }
+                    return Page();
+                }
+
                 var adminRoleId = "98954494-ef5f-4a06-87e4-22ef31417c9c"; // id roli admina
                 var adminIds = await _userRoleRepository.GetUserIdsInRoleAsync(adminRoleId);
                 await _hubContext.Clients.Users(adminIds).SendAsync("UserRegistered", user.UserName, user.Id);
@@ -104,7 +113,6 @@ public class RegisterModel : PageModel
                 }
                 ModelState.AddModelError(key, msg);
             }
-
             return Page();
         }
         catch (Exception ex)
@@ -113,5 +121,6 @@ public class RegisterModel : PageModel
             return Page();
         }
     }
+
 
 }
