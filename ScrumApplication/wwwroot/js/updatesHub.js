@@ -576,7 +576,47 @@ connection.on("EventsListUpdated", (events) => {
         select.appendChild(option);
     });
 });
+// Blokowanie edycji po usunięciu zadania
+connection.on("BlockEditWhenTaskDeleted", function (taskId) {
+    console.log(`📩 Event BlockEditWhenDeleted odebrany dla taskId: ${taskId} na stronie edycji`);
+    if (taskId === currentTaskId) {
+        console.log(`🔒 Blokowanie formularza dla usuniętego zadania o ID: ${taskId}`);
+        document.querySelectorAll('input, select, textarea, button[type="submit"]').forEach(el => el.disabled = true);
+        // 🔔 Toast
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = toastEl.querySelector('.toast-body');
+        toastBody.textContent = "Edycja zablokowana - zadanie zostało usunięte";
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
+        toastEl.classList.add('bg-warning', 'text-white');
+        new bootstrap.Toast(toastEl).show();
 
+        // Przekierowanie po 3 sekundach
+        setTimeout(() => {
+            window.location.href = "https://localhost:7264/Tasks";
+        }, 3000);
+    }
+});
+// Blokowanie edycji wydarzenia po jego usunięciu
+connection.on("BlockEditWhenEventDeleted", function (eventId) {
+    console.log(`📩 Event BlockEditWhenEventDeleted odebrany dla eventId: ${eventId} na stronie edycji`);
+    if (eventId === currentEventId) {
+        console.log(`🔒 Blokowanie formularza dla usuniętego wydarzenia o ID: ${eventId}`);
+        document.querySelectorAll('input, select, textarea, button[type="submit"]').forEach(el => el.disabled = true);
+
+        // Wyświetlenie toastu z komunikatem
+        const toastEl = document.getElementById('liveToast');
+        const toastBody = toastEl.querySelector('.toast-body');
+        toastBody.textContent = "Edycja zablokowana - wydarzenie zostało usunięte";
+        toastEl.classList.remove('bg-success', 'bg-danger', 'bg-warning', 'bg-info', 'text-dark', 'text-white');
+        toastEl.classList.add('bg-warning', 'text-white');
+        new bootstrap.Toast(toastEl).show();
+
+        // Opcjonalnie przekierowanie po 3 sekundach
+        setTimeout(() => {
+            window.location.href = "https://localhost:7264/Events"; // adres strony z wydarzeniami
+        }, 3000);
+    }
+});
 // Delegowanie kliknięć toggle-done dla zadań
 $(document).on('click', '.toggle-done-task', function (e) {
     e.preventDefault();

@@ -347,7 +347,7 @@ namespace ScrumApplicationTests
 
             Assert.IsType<RedirectToPageResult>(result);
             mockTaskRepo.Verify(r => r.DeleteTaskAsync(task), Times.Once);
-            mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default), Times.Once);
+            mockClientProxy.Verify(c => c.SendCoreAsync(It.IsAny<string>(), It.IsAny<object[]>(), default), Times.Exactly(3));
         }
     }
 }

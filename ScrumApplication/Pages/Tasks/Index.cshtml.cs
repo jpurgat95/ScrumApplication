@@ -243,10 +243,14 @@ namespace ScrumApplication.Pages.Tasks
                 if (isAdmin)
                 {
                     await _hubContext.Clients.User(userToSendId).SendAsync("TaskDeleted", task.Id);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("BlockEditWhenTaskDeleted", task.Id);
+                    await _hubContext.Clients.User(userToSendId).SendAsync("BlockEditWhenTaskDeleted", task.Id);
                 }
                 else
                 {
                     await _hubContext.Clients.Users(adminIds).SendAsync("TaskDeleted", task.Id);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("BlockEditWhenTaskDeleted", task.Id);
+                    await _hubContext.Clients.User(userToSendId).SendAsync("BlockEditWhenTaskDeleted", task.Id);
                 }
 
                 TempData["ToastMessage"] = "Zadanie zostało usunięte";

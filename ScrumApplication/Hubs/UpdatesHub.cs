@@ -41,4 +41,8 @@ public class UpdatesHub : Hub
     => await Clients.All.SendAsync("RelatedTasksDeleted", eventId, taskIds);
     public async Task EventsListUpdated(List<ScrumEvent> events)
     => await Clients.All.SendAsync("EventsListUpdated", events);
+    public async Task BlockEditWhenDeleted(int taskId)
+    => await Clients.All.SendAsync("BlockEditWhenDeleted", taskId);
+    public async Task BlockEditWhenEventDeleted(int eventId)
+    => await Clients.All.SendAsync("BlockEditWhenEventDeleted", eventId);
 }

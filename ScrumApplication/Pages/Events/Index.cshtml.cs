@@ -311,19 +311,36 @@ namespace ScrumApplication.Pages.Events
                 {
                     await _hubContext.Clients.User(userToSendId).SendAsync("EventDeleted", ev.Id);
                     await _hubContext.Clients.User(userToSendId).SendAsync("RelatedTasksDeleted", ev.Id, relatedTaskIds);
+                    await _hubContext.Clients.User(userToSendId).SendAsync("BlockEditWhenEventDeleted", ev.Id);
 
                     // Powiadom siebie (zawsze!)
                     await _hubContext.Clients.User(userId).SendAsync("RelatedTasksDeleted", ev.Id, relatedTaskIds);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("BlockEditWhenEventDeleted", ev.Id);
+
+                    foreach (var taskId in relatedTaskIds)
+                    {
+                        await _hubContext.Clients.User(userToSendId).SendAsync("BlockEditWhenTaskDeleted", taskId);
+                        await _hubContext.Clients.User(userId).SendAsync("BlockEditWhenTaskDeleted", taskId);
+                        await _hubContext.Clients.Users(adminIds).SendAsync("BlockEditWhenTaskDeleted", taskId);
+                    }
                 }
                 else
                 {
                     await _hubContext.Clients.Users(adminIds).SendAsync("EventDeleted", ev.Id);
                     await _hubContext.Clients.Users(adminIds).SendAsync("RelatedTasksDeleted", ev.Id, relatedTaskIds);
+                    await _hubContext.Clients.Users(adminIds).SendAsync("BlockEditWhenEventDeleted", ev.Id);
 
                     // Powiadom siebie (zawsze!)
                     await _hubContext.Clients.User(userId).SendAsync("RelatedTasksDeleted", ev.Id, relatedTaskIds);
-                }
+                    await _hubContext.Clients.User(userToSendId).SendAsync("BlockEditWhenEventDeleted", ev.Id);
 
+                    foreach (var taskId in relatedTaskIds)
+                    {
+                        await _hubContext.Clients.User(userToSendId).SendAsync("BlockEditWhenTaskDeleted", taskId);
+                        await _hubContext.Clients.User(userId).SendAsync("BlockEditWhenTaskDeleted", taskId);
+                        await _hubContext.Clients.Users(adminIds).SendAsync("BlockEditWhenTaskDeleted", taskId);
+                    }
+                }
 
                 TempData["ToastMessage"] = "Wydarzenie zostało usunięte";
                 TempData["ToastType"] = "danger";
@@ -335,6 +352,5 @@ namespace ScrumApplication.Pages.Events
                 return Page();
             }
         }
-
     }
 }
