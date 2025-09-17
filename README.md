@@ -19,7 +19,7 @@ ScrumApplication posiada system autoryzacji z rolami użytkowników (Admin, User
 - Entity Framework Core 9.0.8 z SQL Server  
 - SignalR 1.2.0  
 - Selenium WebDriver 4.35.0 z ChromeDriver do automatycznych testów UI  
-- xUnit 2.9.3 do testów jednostkowych i integracyjnych  
+- xUnit 2.9.3 do testów jednostkowych 
 
 ## Instrukcja uruchomienia
 1. Sklonuj repozytorium:  
