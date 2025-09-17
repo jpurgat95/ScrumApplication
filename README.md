@@ -67,7 +67,8 @@ Projekt zawiera dwa podstawowe typy użytkowników:
   - [`Wydarzenia - widok Admina - część 1`](https://github.com/user-attachments/assets/6e01c0a9-a704-4285-994e-608a686f56ba) , [`Wydarzenia - widok Admina - część 2`](https://github.com/user-attachments/assets/e9e179e5-b4bc-4fa9-b231-45e897a7c70f)
   - [`Zadania - widok Admina - część 1`](https://github.com/user-attachments/assets/9cb6cda4-2f9d-4663-a4f1-24a80ee9a709) , [`Zadania - widok Admina - część 2`](https://github.com/user-attachments/assets/30e8cb54-88fc-40ca-a8c1-b54649f7c6c9)
 - **Filmik**
- 
+- [`Prezentacja działania aplikacji na YT`](https://youtu.be/ohjLu25dHjI)
+
 ## Kontakt
-Autor: Jarosław Purgat
+Autor: Jarosław Purgat  
 Email: j.purgat95@gmail.com
